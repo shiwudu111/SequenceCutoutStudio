@@ -1,14 +1,9 @@
-import { contextBridge, ipcRenderer, webUtils } from 'electron'
+import { contextBridge, ipcRenderer } from 'electron'
 
 contextBridge.exposeInMainWorld('cutoutAPI', {
   selectFrameFolder: () => ipcRenderer.invoke('dialog:select-frame-folder'),
 
   selectVideoFile: () => ipcRenderer.invoke('dialog:select-video-file'),
-
-  getDroppedPath: (file: File) => webUtils.getPathForFile(file),
-
-  resolveDroppedPath: (filePath: string) =>
-    ipcRenderer.invoke('input:resolve-dropped-path', filePath),
 
   scanFrameFolder: (folderPath: string) =>
     ipcRenderer.invoke('frames:scan-folder', folderPath),

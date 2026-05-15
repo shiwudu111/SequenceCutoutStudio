@@ -1,4 +1,4 @@
-import { useState, type DragEvent } from 'react'
+import { useState } from 'react'
 import './App.css'
 
 type Preset = 'H' | 'I' | 'Custom'
@@ -37,7 +37,6 @@ function App(): JSX.Element {
   })
   const [isProcessing, setIsProcessing] = useState(false)
   const [isTestingSingle, setIsTestingSingle] = useState(false)
-  const [isDraggingInput, setIsDraggingInput] = useState(false)
   const [logs, setLogs] = useState<string[]>([
     'Sequence Cutout Studio 已启动。',
     '当前阶段：Phase 1D - 单帧预览 + 黑底 / 棋盘格 / 白底 / 灰底检查。'
@@ -133,7 +132,16 @@ function App(): JSX.Element {
     await applyFrameFolderScanResult(folderPath, result)
   }
 
-  const applySelectedVideo = (videoPath: string): void => {
+  const handleSelectVideoFile = async (): Promise<void> => {
+    appendLog('正在选择视频文件...')
+
+    const videoPath = await window.cutoutAPI.selectVideoFile()
+
+    if (!videoPath) {
+      appendLog('已取消选择视频。')
+      return
+    }
+
     setSelectedVideo(videoPath)
     setInputPath(videoPath)
     setAssetType('视频文件')
@@ -154,83 +162,6 @@ function App(): JSX.Element {
     })
 
     appendLog(`已选择视频：${videoPath}`)
-  }
-
-  const handleSelectVideoFile = async (): Promise<void> => {
-    appendLog('正在选择视频文件...')
-
-    const videoPath = await window.cutoutAPI.selectVideoFile()
-
-    if (!videoPath) {
-      appendLog('已取消选择视频。')
-      return
-    }
-
-    applySelectedVideo(videoPath)
-  }
-
-  const handleInputDragEnter = (event: DragEvent<HTMLDivElement>): void => {
-    event.preventDefault()
-    event.stopPropagation()
-    setIsDraggingInput(true)
-  }
-
-  const handleInputDragOver = (event: DragEvent<HTMLDivElement>): void => {
-    event.preventDefault()
-    event.stopPropagation()
-    setIsDraggingInput(true)
-  }
-
-  const handleInputDragLeave = (event: DragEvent<HTMLDivElement>): void => {
-    event.preventDefault()
-    event.stopPropagation()
-    setIsDraggingInput(false)
-  }
-
-  const handleInputDrop = async (event: DragEvent<HTMLDivElement>): Promise<void> => {
-    event.preventDefault()
-    event.stopPropagation()
-    setIsDraggingInput(false)
-
-    const droppedFile = event.dataTransfer.files?.[0]
-
-    if (!droppedFile) {
-      appendLog('没有识别到拖入文件。')
-      return
-    }
-
-    const droppedPath = window.cutoutAPI.getDroppedPath(droppedFile)
-
-    if (!droppedPath) {
-      appendLog('拖入文件路径读取失败。')
-      return
-    }
-
-    appendLog(`拖入素材：${droppedPath}`)
-
-    const resolved = await window.cutoutAPI.resolveDroppedPath(droppedPath)
-
-    if (!resolved.ok) {
-      appendLog(`拖入失败：${resolved.message ?? '不支持的素材类型'}`)
-      return
-    }
-
-    if (resolved.kind === 'video' && resolved.videoPath) {
-      applySelectedVideo(resolved.videoPath)
-      return
-    }
-
-    if ((resolved.kind === 'frameFolder' || resolved.kind === 'pngFile') && resolved.frameFolder) {
-      setSelectedVideo('')
-      setOutputFolder('')
-      appendLog(`开始扫描拖入序列帧目录：${resolved.frameFolder}`)
-
-      const scanResult = await window.cutoutAPI.scanFrameFolder(resolved.frameFolder)
-      await applyFrameFolderScanResult(resolved.frameFolder, scanResult)
-      return
-    }
-
-    appendLog('拖入失败：无法识别素材类型。')
   }
 
   const handleExtractFrames = async (): Promise<void> => {
@@ -465,15 +396,9 @@ function App(): JSX.Element {
               </button>
             </div>
 
-            <div
-              className={isDraggingInput ? 'drop-zone drag-active' : 'drop-zone'}
-              onDragEnter={handleInputDragEnter}
-              onDragOver={handleInputDragOver}
-              onDragLeave={handleInputDragLeave}
-              onDrop={handleInputDrop}
-            >
-              <strong>拖入视频、序列帧文件夹，或序列帧 PNG</strong>
-              <p>支持 MP4 / MOV / WEBM / MKV，也支持直接拖入 PNG 序列帧目录或其中一张 PNG。</p>
+            <div className="drop-zone">
+              <strong>拖入视频或 PNG 序列帧文件夹</strong>
+              <p>当前支持选择视频文件并切成 PNG 序列帧，也支持直接选择 PNG 序列帧文件夹。</p>
             </div>
 
             <div className="video-tools">

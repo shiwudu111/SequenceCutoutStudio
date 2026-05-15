@@ -68,54 +68,6 @@ function safeName(input: string): string {
     .replace(/^_+|_+$/g, '')
 }
 
-function isSupportedVideoFile(filePath: string): boolean {
-  const ext = path.extname(filePath).toLowerCase()
-  return ['.mp4', '.mov', '.webm', '.mkv'].includes(ext)
-}
-
-function isPngFile(filePath: string): boolean {
-  return path.extname(filePath).toLowerCase() === '.png'
-}
-
-async function resolveDroppedPath(inputPath: string) {
-  const resolvedPath = path.resolve(inputPath)
-  const stat = await fs.stat(resolvedPath)
-
-  if (stat.isDirectory()) {
-    return {
-      ok: true,
-      inputPath: resolvedPath,
-      kind: 'frameFolder',
-      frameFolder: resolvedPath
-    }
-  }
-
-  if (stat.isFile() && isSupportedVideoFile(resolvedPath)) {
-    return {
-      ok: true,
-      inputPath: resolvedPath,
-      kind: 'video',
-      videoPath: resolvedPath
-    }
-  }
-
-  if (stat.isFile() && isPngFile(resolvedPath)) {
-    return {
-      ok: true,
-      inputPath: resolvedPath,
-      kind: 'pngFile',
-      frameFolder: path.dirname(resolvedPath),
-      fileName: path.basename(resolvedPath)
-    }
-  }
-
-  return {
-    ok: false,
-    inputPath: resolvedPath,
-    message: '暂不支持该拖入文件。请拖入视频文件、PNG 序列帧文件夹，或序列帧中的某一张 PNG。'
-  }
-}
-
 async function countPngFiles(folderPath: string): Promise<number> {
   try {
     const entries = await fs.readdir(folderPath, { withFileTypes: true })
@@ -570,20 +522,6 @@ async function runBatchCutout(args: {
     postprocessLog: `${postprocessResult.stdout}\n${postprocessResult.stderr}`
   }
 }
-
-ipcMain.handle('input:resolve-dropped-path', async (_event, inputPath: string) => {
-  try {
-    return await resolveDroppedPath(inputPath)
-  } catch (error) {
-    return {
-      ok: false,
-      inputPath,
-      message: error instanceof Error ? error.message : String(error)
-    }
-  }
-})
-
-
 
 ipcMain.handle('dialog:select-video-file', async () => {
   const result = await dialog.showOpenDialog({

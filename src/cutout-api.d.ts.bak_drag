@@ -54,16 +54,6 @@ declare global {
         ffmpegLog: string
     }
 
-    type ResolveDroppedPathResult = {
-        ok: boolean
-        message?: string
-        inputPath: string
-        kind?: 'video' | 'frameFolder' | 'pngFile'
-        videoPath?: string
-        frameFolder?: string
-        fileName?: string
-    }
-
     type BatchCutoutResult = {
         ok: boolean
         message?: string
@@ -109,8 +99,6 @@ declare global {
         cutoutAPI: {
             selectFrameFolder: () => Promise<string | null>
             selectVideoFile: () => Promise<string | null>
-            getDroppedPath: (file: File) => string
-            resolveDroppedPath: (filePath: string) => Promise<ResolveDroppedPathResult>
             scanFrameFolder: (folderPath: string) => Promise<FrameFolderScanResult>
             extractVideoFrames: (args: ExtractVideoFramesArgs) => Promise<ExtractVideoFramesResult>
             runSingleCutout: (args: RunSingleCutoutArgs) => Promise<SingleCutoutResult>
