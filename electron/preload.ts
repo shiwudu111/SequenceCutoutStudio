@@ -15,6 +15,14 @@ contextBridge.exposeInMainWorld('cutoutAPI', {
     outputPrefix: string
   }) => ipcRenderer.invoke('video:extract-frames', args),
 
+  runSingleCutout: (args: {
+    inputDir: string
+    frameName: string
+    preset: 'H' | 'I' | 'Custom'
+    alphaLow: number
+    shrink: number
+  }) => ipcRenderer.invoke('process:run-single-cutout', args),
+
   runBatchCutout: (args: {
     inputDir: string
     preset: 'H' | 'I' | 'Custom'

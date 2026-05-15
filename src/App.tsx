@@ -36,6 +36,7 @@ function App(): JSX.Element {
     soft: ''
   })
   const [isProcessing, setIsProcessing] = useState(false)
+  const [isTestingSingle, setIsTestingSingle] = useState(false)
   const [logs, setLogs] = useState<string[]>([
     'Sequence Cutout Studio 已启动。',
     '当前阶段：Phase 1D - 单帧预览 + 黑底 / 棋盘格 / 白底 / 灰底检查。'
@@ -213,7 +214,61 @@ function App(): JSX.Element {
       setShrink(0.78)
     }
   }
+  const handleRunSingleCutout = async (): Promise<void> => {
+    if (!selectedFolder) {
+      appendLog('请先选择序列帧文件夹，或先从视频切成序列帧。')
+      return
+    }
 
+    if (!previewFrameName) {
+      appendLog('没有可测试的预览帧。')
+      return
+    }
+
+    setIsTestingSingle(true)
+    setOutputFolder('')
+
+    appendLog('开始测试单帧。')
+    appendLog(`输入目录：${selectedFolder}`)
+    appendLog(`测试帧：${previewFrameName}`)
+    appendLog(`Preset：${preset} / AlphaLow=${alphaLow} / Shrink=${shrink}`)
+
+    const result = await window.cutoutAPI.runSingleCutout({
+      inputDir: selectedFolder,
+      frameName: previewFrameName,
+      preset,
+      alphaLow,
+      shrink
+    })
+
+    appendLog(result.message ?? (result.ok ? '单帧测试完成。' : '单帧测试失败。'))
+
+    if (!result.ok) {
+      appendLog('单帧测试失败日志：')
+
+      if (result.rembgLog.trim()) {
+        appendLog(result.rembgLog.trim())
+      }
+
+      if (result.postprocessLog.trim()) {
+        appendLog(result.postprocessLog.trim())
+      }
+
+      setIsTestingSingle(false)
+      return
+    }
+
+    setOutputFolder(result.outputDir)
+    appendLog(`Raw 文件：${result.rawFile}`)
+    appendLog(`Soft 文件：${result.outputFile}`)
+
+    await loadPreviewImage('raw', result.rawFile)
+    await loadPreviewImage('soft', result.outputFile)
+    setActivePreviewTab('soft')
+
+    appendLog('单帧测试完成，可查看 Raw / Soft 预览。')
+    setIsTestingSingle(false)
+  }
   const handleRunBatchCutout = async (): Promise<void> => {
     if (!selectedFolder) {
       appendLog('请先选择序列帧文件夹。')
@@ -463,7 +518,13 @@ function App(): JSX.Element {
             </label>
 
             <div className="button-row">
-              <button className="primary-button">测试单帧</button>
+              <button
+                className="primary-button"
+                onClick={handleRunSingleCutout}
+                disabled={isTestingSingle || !selectedFolder || !previewFrameName}
+              >
+                {isTestingSingle ? '测试中...' : '测试单帧'}
+              </button>
               <button className="primary-button" onClick={handleRunBatchCutout} disabled={isProcessing}>
                 {isProcessing ? '处理中...' : '批量处理'}
               </button>

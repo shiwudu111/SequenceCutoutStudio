@@ -281,6 +281,128 @@ async function extractVideoFrames(args: {
   }
 }
 
+async function runSingleCutout(args: {
+  inputDir: string
+  frameName: string
+  preset: 'H' | 'I' | 'Custom'
+  alphaLow: number
+  shrink: number
+}) {
+  const inputDir = path.resolve(args.inputDir)
+  const parentDir = path.dirname(inputDir)
+  const inputName = path.basename(inputDir)
+
+  const rawDir = path.join(parentDir, `${inputName}_general_raw`)
+  const outputDir = path.join(parentDir, `${inputName}_soft_${args.preset}`)
+
+  const originalFile = path.join(inputDir, args.frameName)
+  const rawFile = path.join(rawDir, args.frameName)
+  const outputFile = path.join(outputDir, args.frameName)
+
+  await fs.mkdir(rawDir, { recursive: true })
+  await fs.mkdir(outputDir, { recursive: true })
+
+  try {
+    await fs.access(originalFile)
+  } catch {
+    return {
+      ok: false,
+      message: `找不到原始帧：${originalFile}`,
+      inputDir,
+      frameName: args.frameName,
+      originalFile,
+      rawFile,
+      outputFile,
+      rawDir,
+      outputDir,
+      preset: args.preset,
+      alphaLow: args.alphaLow,
+      shrink: args.shrink,
+      rembgLog: '',
+      postprocessLog: ''
+    }
+  }
+
+  const rembgResult = await runCommand(
+    REMBG_EXE,
+    ['i', '-m', 'isnet-general-use', originalFile, rawFile],
+    {
+      env: {
+        U2NET_HOME: MODEL_DIR
+      }
+    }
+  )
+
+  if (rembgResult.code !== 0) {
+    return {
+      ok: false,
+      message: 'rembg 单帧抠图失败。',
+      inputDir,
+      frameName: args.frameName,
+      originalFile,
+      rawFile,
+      outputFile,
+      rawDir,
+      outputDir,
+      preset: args.preset,
+      alphaLow: args.alphaLow,
+      shrink: args.shrink,
+      rembgLog: `${rembgResult.stdout}\n${rembgResult.stderr}`,
+      postprocessLog: ''
+    }
+  }
+
+  const postprocessResult = await runCommand(PYTHON_EXE, [
+    POSTPROCESS_SCRIPT,
+    '--original',
+    originalFile,
+    '--raw',
+    rawFile,
+    '--output',
+    outputFile,
+    '--alpha-low',
+    String(args.alphaLow),
+    '--shrink',
+    String(args.shrink)
+  ])
+
+  if (postprocessResult.code !== 0) {
+    return {
+      ok: false,
+      message: 'postprocess 单帧后处理失败。',
+      inputDir,
+      frameName: args.frameName,
+      originalFile,
+      rawFile,
+      outputFile,
+      rawDir,
+      outputDir,
+      preset: args.preset,
+      alphaLow: args.alphaLow,
+      shrink: args.shrink,
+      rembgLog: `${rembgResult.stdout}\n${rembgResult.stderr}`,
+      postprocessLog: `${postprocessResult.stdout}\n${postprocessResult.stderr}`
+    }
+  }
+
+  return {
+    ok: true,
+    message: '单帧测试完成。',
+    inputDir,
+    frameName: args.frameName,
+    originalFile,
+    rawFile,
+    outputFile,
+    rawDir,
+    outputDir,
+    preset: args.preset,
+    alphaLow: args.alphaLow,
+    shrink: args.shrink,
+    rembgLog: `${rembgResult.stdout}\n${rembgResult.stderr}`,
+    postprocessLog: `${postprocessResult.stdout}\n${postprocessResult.stderr}`
+  }
+}
+
 async function runBatchCutout(args: {
   inputDir: string
   preset: 'H' | 'I' | 'Custom'
@@ -461,6 +583,29 @@ ipcMain.handle('video:extract-frames', async (_event, args) => {
       durationSeconds: args?.durationSeconds ?? 4,
       outputCount: 0,
       ffmpegLog: ''
+    }
+  }
+})
+
+ipcMain.handle('process:run-single-cutout', async (_event, args) => {
+  try {
+    return await runSingleCutout(args)
+  } catch (error) {
+    return {
+      ok: false,
+      message: error instanceof Error ? error.message : String(error),
+      inputDir: args?.inputDir ?? '',
+      frameName: args?.frameName ?? '',
+      originalFile: '',
+      rawFile: '',
+      outputFile: '',
+      rawDir: '',
+      outputDir: '',
+      preset: args?.preset ?? 'I',
+      alphaLow: args?.alphaLow ?? 48,
+      shrink: args?.shrink ?? 0.78,
+      rembgLog: '',
+      postprocessLog: ''
     }
   }
 })
