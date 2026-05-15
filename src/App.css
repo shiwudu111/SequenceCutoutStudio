@@ -1,0 +1,552 @@
+:root {
+  font-family:
+    Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI',
+    sans-serif;
+  color: #243044;
+  background: #eef2f7;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  min-width: 1100px;
+  min-height: 720px;
+  background: #eef2f7;
+}
+
+button,
+input {
+  font: inherit;
+}
+
+button {
+  cursor: pointer;
+}
+
+.app-shell {
+  display: grid;
+  grid-template-columns: 280px 1fr;
+  min-height: 100vh;
+  background:
+    radial-gradient(circle at top left, rgba(104, 129, 255, 0.18), transparent 32%),
+    #eef2f7;
+}
+
+.sidebar {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  padding: 28px 22px;
+  background: rgba(255, 255, 255, 0.82);
+  border-right: 1px solid rgba(125, 139, 160, 0.2);
+  backdrop-filter: blur(18px);
+}
+
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.brand-mark {
+  width: 48px;
+  height: 48px;
+  border-radius: 16px;
+  display: grid;
+  place-items: center;
+  color: white;
+  font-weight: 800;
+  background: linear-gradient(135deg, #6d7cff, #b45dff);
+  box-shadow: 0 14px 28px rgba(92, 105, 255, 0.28);
+}
+
+.brand h1 {
+  margin: 0;
+  font-size: 18px;
+  line-height: 1.1;
+}
+
+.brand p {
+  margin: 5px 0 0;
+  font-size: 12px;
+  color: #7a879a;
+}
+
+.steps {
+  display: grid;
+  gap: 10px;
+}
+
+.step {
+  border: 0;
+  border-radius: 14px;
+  padding: 13px 14px;
+  text-align: left;
+  color: #5f6d81;
+  background: transparent;
+}
+
+.step.active {
+  color: #29364a;
+  background: #eef2ff;
+  font-weight: 700;
+}
+
+.phase-card {
+  margin-top: auto;
+  padding: 16px;
+  border-radius: 18px;
+  background: #f8fafc;
+  border: 1px solid #e3e8f0;
+}
+
+.phase-card span {
+  font-size: 12px;
+  color: #8290a3;
+}
+
+.phase-card strong {
+  display: block;
+  margin-top: 4px;
+  font-size: 16px;
+}
+
+.phase-card p {
+  margin: 10px 0 0;
+  font-size: 12px;
+  line-height: 1.6;
+  color: #6c788a;
+}
+
+.workspace {
+  padding: 28px;
+  overflow: auto;
+}
+
+.topbar {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  margin-bottom: 22px;
+}
+
+.topbar h2 {
+  margin: 0;
+  font-size: 28px;
+  letter-spacing: -0.03em;
+}
+
+.topbar p {
+  margin: 8px 0 0;
+  color: #66758b;
+}
+
+.status-pill {
+  padding: 9px 13px;
+  border-radius: 999px;
+  color: #526175;
+  background: white;
+  border: 1px solid #dde5f0;
+  font-size: 13px;
+}
+
+.content-grid {
+  display: grid;
+  grid-template-columns: minmax(360px, 0.95fr) minmax(420px, 1.25fr);
+  gap: 18px;
+}
+
+.panel {
+  min-height: 220px;
+  border-radius: 24px;
+  padding: 20px;
+  background: rgba(255, 255, 255, 0.9);
+  border: 1px solid rgba(213, 221, 232, 0.95);
+  box-shadow: 0 18px 45px rgba(76, 91, 124, 0.08);
+}
+
+.panel-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 16px;
+}
+
+.panel-header h3 {
+  margin: 0;
+  font-size: 18px;
+}
+
+.panel-header span {
+  font-size: 12px;
+  color: #8a97aa;
+}
+
+.button-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.primary-button,
+.secondary-button {
+  border: 0;
+  border-radius: 13px;
+  padding: 11px 14px;
+  font-weight: 700;
+}
+
+.primary-button {
+  color: white;
+  background: #536dfe;
+  box-shadow: 0 10px 20px rgba(83, 109, 254, 0.22);
+}
+
+.secondary-button {
+  color: #46566c;
+  background: #edf1f7;
+}
+
+.drop-zone {
+  margin-top: 16px;
+  padding: 24px;
+  border-radius: 20px;
+  border: 2px dashed #c9d3e2;
+  background: #f8fafc;
+  text-align: center;
+}
+
+.drop-zone p {
+  margin: 8px 0 0;
+  color: #7c899b;
+  font-size: 13px;
+}
+
+.info-list {
+  display: grid;
+  gap: 10px;
+  margin-top: 16px;
+}
+
+.info-list div {
+  display: grid;
+  grid-template-columns: 64px 1fr;
+  gap: 12px;
+  padding: 10px 12px;
+  border-radius: 13px;
+  background: #f7f9fc;
+}
+
+.info-list span {
+  color: #8491a4;
+}
+
+.info-list strong {
+  overflow: hidden;
+  color: #334158;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.preset-row {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 16px;
+}
+
+.preset {
+  min-width: 72px;
+  border: 1px solid #d8e0ec;
+  border-radius: 14px;
+  padding: 12px 14px;
+  color: #526176;
+  background: #f8fafc;
+  font-weight: 800;
+}
+
+.preset.active {
+  color: white;
+  background: #536dfe;
+  border-color: #536dfe;
+}
+
+.field {
+  display: grid;
+  gap: 7px;
+  margin-bottom: 14px;
+}
+
+.field span {
+  color: #6e7b8f;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.field input {
+  width: 100%;
+  border: 1px solid #d7dfeb;
+  border-radius: 13px;
+  padding: 11px 12px;
+  color: #2d3b50;
+  background: #fbfcfe;
+}
+
+.field input:disabled {
+  color: #9aa6b7;
+  background: #eef2f7;
+}
+
+.preview-panel {
+  grid-row: span 2;
+}
+
+.segmented {
+  display: flex;
+  overflow: hidden;
+  border-radius: 12px;
+  background: #eef2f7;
+}
+
+.segmented button {
+  border: 0;
+  padding: 8px 12px;
+  color: #68778c;
+  background: transparent;
+}
+
+.segmented button.active {
+  color: white;
+  background: #253044;
+}
+
+.preview-stage {
+  display: grid;
+  place-items: center;
+  min-height: 420px;
+  overflow: hidden;
+  border-radius: 20px;
+  border: 1px solid #dbe3ef;
+}
+
+.preview-stage.black {
+  background: #050505;
+}
+
+.preview-stage.white {
+  background: #ffffff;
+}
+
+.preview-stage.gray {
+  background: #808080;
+}
+
+.preview-stage.checker {
+  background:
+    linear-gradient(45deg, #cdd5e0 25%, transparent 25%),
+    linear-gradient(-45deg, #cdd5e0 25%, transparent 25%),
+    linear-gradient(45deg, transparent 75%, #cdd5e0 75%),
+    linear-gradient(-45deg, transparent 75%, #cdd5e0 75%);
+  background-position:
+    0 0,
+    0 12px,
+    12px -12px,
+    -12px 0;
+  background-size: 24px 24px;
+  background-color: #eef2f7;
+}
+
+.preview-empty {
+  text-align: center;
+  color: #8b98aa;
+}
+
+.preview-empty strong {
+  display: block;
+  margin-bottom: 8px;
+  color: #aeb8c6;
+  font-size: 20px;
+}
+
+.preview-empty p {
+  margin: 0;
+}
+
+.preview-tabs {
+  display: flex;
+  gap: 8px;
+  margin-top: 14px;
+}
+
+.preview-tabs button {
+  border: 0;
+  border-radius: 12px;
+  padding: 9px 14px;
+  color: #657489;
+  background: #eef2f7;
+}
+
+.preview-tabs button.active {
+  color: white;
+  background: #253044;
+}
+
+.log-panel {
+  min-height: 240px;
+}
+
+.logs {
+  display: grid;
+  gap: 8px;
+  max-height: 170px;
+  overflow: auto;
+  padding: 14px;
+  border-radius: 16px;
+  color: #d5def1;
+  background: #121927;
+  font-family: 'Cascadia Code', Consolas, monospace;
+  font-size: 13px;
+}
+
+.log-line {
+  white-space: pre-wrap;
+}
+
+.preview-image {
+  max-width: 92%;
+  max-height: 92%;
+  object-fit: contain;
+  image-rendering: auto;
+  filter: drop-shadow(0 18px 28px rgba(0, 0, 0, 0.18));
+}
+
+.preview-stage.black .preview-image {
+  filter: drop-shadow(0 18px 28px rgba(255, 255, 255, 0.08));
+}
+
+button:disabled {
+  cursor: not-allowed;
+  opacity: 0.45;
+}
+
+.video-tools {
+  display: grid;
+  gap: 12px;
+  margin-top: 16px;
+  padding: 16px;
+  border-radius: 18px;
+  background: #f8fafc;
+  border: 1px solid #e1e8f2;
+}
+
+.video-tool-title {
+  font-size: 14px;
+  font-weight: 800;
+  color: #3a4960;
+}
+
+/* Phase 1 layout v2: three-column workstation */
+.workspace {
+  height: 100vh;
+  overflow: hidden;
+}
+
+.content-grid {
+  height: calc(100vh - 118px);
+  display: grid;
+  grid-template-columns: 380px 320px minmax(520px, 1fr);
+  grid-template-rows: minmax(0, 1fr) 300px;
+  gap: 18px;
+  align-items: stretch;
+}
+
+.content-grid > .panel {
+  min-height: 0;
+}
+
+/* 左栏：输入素材，跨两行 */
+.content-grid > section:nth-child(1) {
+  grid-column: 1;
+  grid-row: 1 / span 2;
+  overflow: auto;
+}
+
+/* 中栏：处理参数，跨两行 */
+.content-grid > section:nth-child(2) {
+  grid-column: 2;
+  grid-row: 1 / span 2;
+  overflow: auto;
+}
+
+/* 右上：预览检查 */
+.preview-panel {
+  grid-column: 3;
+  grid-row: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.preview-panel .panel-header {
+  flex: 0 0 auto;
+}
+
+.preview-stage {
+  flex: 1;
+  min-height: 0;
+}
+
+.preview-tabs {
+  flex: 0 0 auto;
+}
+
+/* 右下：处理日志 */
+.log-panel {
+  grid-column: 3;
+  grid-row: 2;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.log-panel .panel-header {
+  flex: 0 0 auto;
+}
+
+.logs {
+  flex: 1;
+  max-height: none;
+  min-height: 0;
+  overflow: auto;
+}
+
+/* 压缩输入区，让内容更像工具面板 */
+.drop-zone {
+  padding: 18px;
+}
+
+.video-tools {
+  gap: 10px;
+  padding: 14px;
+}
+
+.field {
+  margin-bottom: 10px;
+}
+
+/* 让处理中按钮组在中栏里更舒服 */
+.button-row {
+  gap: 10px;
+}
+
+.primary-button,
+.secondary-button {
+  min-height: 44px;
+}
+
+/* 小屏兜底：窗口太窄时允许横向滚动 */
+.workspace {
+  min-width: 1220px;
+}
