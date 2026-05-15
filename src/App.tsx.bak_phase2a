@@ -10,11 +10,6 @@ function App(): JSX.Element {
   const [selectedFolder, setSelectedFolder] = useState('')
   const [selectedVideo, setSelectedVideo] = useState('')
   const [outputFolder, setOutputFolder] = useState('')
-  const [rawFolder, setRawFolder] = useState('')
-  const [softFolder, setSoftFolder] = useState('')
-  const [frameFiles, setFrameFiles] = useState<string[]>([])
-  const [currentFrameIndex, setCurrentFrameIndex] = useState(0)
-  const [keyFrameIndexes, setKeyFrameIndexes] = useState<number[]>([])
   const [assetType, setAssetType] = useState('未识别')
   const [frameCount, setFrameCount] = useState('-')
   const [frameSize, setFrameSize] = useState('-')
@@ -56,17 +51,11 @@ function App(): JSX.Element {
     return `${folderPath.replace(/[\\/]+$/, '')}\\${fileName}`
   }
 
-  const loadPreviewImage = async (
-    kind: PreviewTab,
-    filePath: string,
-    silent = false
-  ): Promise<void> => {
+  const loadPreviewImage = async (kind: PreviewTab, filePath: string): Promise<void> => {
     const result = await window.cutoutAPI.readImageAsDataUrl(filePath)
 
     if (!result.ok) {
-      if (!silent) {
-        appendLog(`预览读取失败：${result.message ?? filePath}`)
-      }
+      appendLog(`预览读取失败：${result.message ?? filePath}`)
       return
     }
 
@@ -75,80 +64,7 @@ function App(): JSX.Element {
       [kind]: result.dataUrl
     }))
 
-    if (!silent) {
-      appendLog(`预览已加载：${kind} → ${filePath}`)
-    }
-  }
-
-  const getKeyFrameIndexes = (files: string[]): number[] => {
-    if (files.length === 0) {
-      return []
-    }
-
-    const firstIndex = 0
-    const middleIndex = Math.floor((files.length - 1) / 2)
-    const lastIndex = files.length - 1
-
-    return Array.from(new Set([firstIndex, middleIndex, lastIndex]))
-  }
-
-  const loadFrameByIndex = async (
-    targetIndex: number,
-    filesOverride = frameFiles,
-    folderOverride = selectedFolder,
-    rawFolderOverride = rawFolder,
-    softFolderOverride = softFolder
-  ): Promise<void> => {
-    if (filesOverride.length === 0 || !folderOverride) {
-      appendLog('没有可预览的序列帧。')
-      return
-    }
-
-    const safeIndex =
-      ((targetIndex % filesOverride.length) + filesOverride.length) % filesOverride.length
-
-    const frameName = filesOverride[safeIndex]
-
-    setCurrentFrameIndex(safeIndex)
-    setPreviewFrameName(frameName)
-
-    await loadPreviewImage('original', joinWindowsPath(folderOverride, frameName), true)
-
-    if (rawFolderOverride) {
-      await loadPreviewImage('raw', joinWindowsPath(rawFolderOverride, frameName), true)
-    }
-
-    if (softFolderOverride) {
-      await loadPreviewImage('soft', joinWindowsPath(softFolderOverride, frameName), true)
-    }
-  }
-
-  const handlePreviousFrame = async (): Promise<void> => {
-    await loadFrameByIndex(currentFrameIndex - 1)
-  }
-
-  const handleNextFrame = async (): Promise<void> => {
-    await loadFrameByIndex(currentFrameIndex + 1)
-  }
-
-  const handleGoToFirstFrame = async (): Promise<void> => {
-    await loadFrameByIndex(0)
-  }
-
-  const handleGoToMiddleFrame = async (): Promise<void> => {
-    if (frameFiles.length === 0) {
-      return
-    }
-
-    await loadFrameByIndex(Math.floor((frameFiles.length - 1) / 2))
-  }
-
-  const handleGoToLastFrame = async (): Promise<void> => {
-    if (frameFiles.length === 0) {
-      return
-    }
-
-    await loadFrameByIndex(frameFiles.length - 1)
+    appendLog(`预览已加载：${kind} → ${filePath}`)
   }
 
   const applyFrameFolderScanResult = async (
@@ -167,9 +83,6 @@ function App(): JSX.Element {
       return
     }
 
-    const files = result.files ?? []
-    const keyIndexes = getKeyFrameIndexes(files)
-
     setSelectedFolder(folderPath)
     setInputPath(folderPath)
     setAssetType('PNG 序列帧')
@@ -181,13 +94,7 @@ function App(): JSX.Element {
     setAlphaInfo(
       result.hasAlpha ? `有 alpha（${result.hasAlphaCount}/${result.pngCount}）` : '无 alpha'
     )
-
-    setFrameFiles(files)
-    setCurrentFrameIndex(0)
-    setKeyFrameIndexes(keyIndexes)
-    setRawFolder('')
-    setSoftFolder('')
-    setPreviewFrameName(files[0] ?? result.firstFileName ?? '')
+    setPreviewFrameName(result.firstFileName ?? '')
     setActivePreviewTab('original')
     setPreviewImages({
       original: '',
@@ -201,10 +108,9 @@ function App(): JSX.Element {
     appendLog(
       `Alpha：${result.hasAlpha ? `有 alpha（${result.hasAlphaCount}/${result.pngCount}）` : '无 alpha'}`
     )
-    appendLog(`关键帧索引：${keyIndexes.map((index) => index + 1).join(' / ')}`)
 
-    if (files.length > 0) {
-      await loadFrameByIndex(0, files, folderPath, '', '')
+    if (result.firstFile) {
+      await loadPreviewImage('original', result.firstFile)
     }
   }
 
@@ -239,13 +145,6 @@ function App(): JSX.Element {
     setAlphaInfo('-')
     setSelectedFolder('')
     setOutputFolder('')
-
-    setRawFolder('')
-    setSoftFolder('')
-    setFrameFiles([])
-    setCurrentFrameIndex(0)
-    setKeyFrameIndexes([])
-
     setPreviewFrameName('')
     setActivePreviewTab('original')
     setPreviewImages({
@@ -476,14 +375,17 @@ function App(): JSX.Element {
       setIsProcessing(false)
       return
     }
-    setRawFolder(result.rawDir)
-    setSoftFolder(result.outputDir)
+
     setOutputFolder(result.outputDir)
     appendLog(`Raw 目录：${result.rawDir}`)
     appendLog(`输出目录：${result.outputDir}`)
 
-    if (frameFiles.length > 0) {
-      await loadFrameByIndex(currentFrameIndex, frameFiles, selectedFolder, result.rawDir, result.outputDir)
+    if (previewFrameName) {
+      const rawPreviewPath = joinWindowsPath(result.rawDir, previewFrameName)
+      const softPreviewPath = joinWindowsPath(result.outputDir, previewFrameName)
+
+      await loadPreviewImage('raw', rawPreviewPath)
+      await loadPreviewImage('soft', softPreviewPath)
       setActivePreviewTab('soft')
     }
 
@@ -752,48 +654,7 @@ function App(): JSX.Element {
                 </div>
               )}
             </div>
-            <div className="frame-controls">
-              <button onClick={handleGoToFirstFrame} disabled={frameFiles.length === 0}>
-                首帧
-              </button>
-              <button onClick={handlePreviousFrame} disabled={frameFiles.length === 0}>
-                上一帧
-              </button>
 
-              <div className="frame-indicator">
-                {frameFiles.length > 0 ? `${currentFrameIndex + 1} / ${frameFiles.length}` : '0 / 0'}
-                {previewFrameName ? ` · ${previewFrameName}` : ''}
-              </div>
-
-              <button onClick={handleNextFrame} disabled={frameFiles.length === 0}>
-                下一帧
-              </button>
-              <button onClick={handleGoToLastFrame} disabled={frameFiles.length === 0}>
-                末帧
-              </button>
-            </div>
-
-            <div className="key-frame-row">
-              <span>关键帧：</span>
-
-              <button onClick={handleGoToFirstFrame} disabled={frameFiles.length === 0}>
-                首帧
-              </button>
-
-              <button onClick={handleGoToMiddleFrame} disabled={frameFiles.length === 0}>
-                中间帧
-              </button>
-
-              <button onClick={handleGoToLastFrame} disabled={frameFiles.length === 0}>
-                末帧
-              </button>
-
-              <span className="key-frame-indexes">
-                {keyFrameIndexes.length > 0
-                  ? keyFrameIndexes.map((index) => index + 1).join(' / ')
-                  : '-'}
-              </span>
-            </div>
             <div className="preview-tabs">
               <button
                 className={activePreviewTab === 'original' ? 'active' : ''}
