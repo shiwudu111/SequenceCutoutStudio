@@ -1,4 +1,4 @@
-import { useState, type DragEvent } from 'react'
+import { useEffect, useRef, useState, type DragEvent } from 'react'
 import './App.css'
 
 type Preset = 'H' | 'I' | 'Custom'
@@ -43,9 +43,12 @@ function App(): JSX.Element {
   const [isProcessing, setIsProcessing] = useState(false)
   const [isTestingSingle, setIsTestingSingle] = useState(false)
   const [isDraggingInput, setIsDraggingInput] = useState(false)
+  const [isPlaying, setIsPlaying] = useState(false)
+  const [playbackFps, setPlaybackFps] = useState(12)
+  const previewCacheRef = useRef<Map<string, string>>(new Map())
   const [logs, setLogs] = useState<string[]>([
     'Sequence Cutout Studio 已启动。',
-    '当前阶段：Phase 1D - 单帧预览 + 黑底 / 棋盘格 / 白底 / 灰底检查。'
+    '当前阶段：Phase 2B - 动画播放预览 + FPS 控制。'
   ])
 
   const appendLog = (line: string): void => {
@@ -61,6 +64,17 @@ function App(): JSX.Element {
     filePath: string,
     silent = false
   ): Promise<void> => {
+    const cacheKey = `${kind}:${filePath}`
+    const cachedDataUrl = previewCacheRef.current.get(cacheKey)
+
+    if (cachedDataUrl) {
+      setPreviewImages((prev) => ({
+        ...prev,
+        [kind]: cachedDataUrl
+      }))
+      return
+    }
+
     const result = await window.cutoutAPI.readImageAsDataUrl(filePath)
 
     if (!result.ok) {
@@ -69,6 +83,8 @@ function App(): JSX.Element {
       }
       return
     }
+
+    previewCacheRef.current.set(cacheKey, result.dataUrl)
 
     setPreviewImages((prev) => ({
       ...prev,
@@ -150,7 +166,44 @@ function App(): JSX.Element {
 
     await loadFrameByIndex(frameFiles.length - 1)
   }
+  const handleTogglePlayback = (): void => {
+    if (frameFiles.length === 0) {
+      appendLog('没有可播放的序列帧。')
+      return
+    }
 
+    setIsPlaying((prev) => !prev)
+  }
+
+  const handlePlaybackFpsChange = (value: number): void => {
+    const safeValue = Number.isFinite(value) ? value : 12
+    const clampedValue = Math.max(1, Math.min(60, safeValue))
+    setPlaybackFps(clampedValue)
+  }
+
+  useEffect(() => {
+    if (!isPlaying || frameFiles.length === 0) {
+      return
+    }
+
+    const safeFps = Math.max(1, Math.min(60, playbackFps))
+
+    const timer = window.setTimeout(() => {
+      void loadFrameByIndex(currentFrameIndex + 1)
+    }, 1000 / safeFps)
+
+    return () => {
+      window.clearTimeout(timer)
+    }
+  }, [
+    isPlaying,
+    currentFrameIndex,
+    frameFiles.length,
+    playbackFps,
+    selectedFolder,
+    rawFolder,
+    softFolder
+  ])
   const applyFrameFolderScanResult = async (
     folderPath: string,
     result: FrameFolderScanResult
@@ -181,6 +234,9 @@ function App(): JSX.Element {
     setAlphaInfo(
       result.hasAlpha ? `有 alpha（${result.hasAlphaCount}/${result.pngCount}）` : '无 alpha'
     )
+
+    setIsPlaying(false)
+    previewCacheRef.current.clear()
 
     setFrameFiles(files)
     setCurrentFrameIndex(0)
@@ -245,6 +301,8 @@ function App(): JSX.Element {
     setFrameFiles([])
     setCurrentFrameIndex(0)
     setKeyFrameIndexes([])
+    setIsPlaying(false)
+    previewCacheRef.current.clear()
 
     setPreviewFrameName('')
     setActivePreviewTab('original')
@@ -447,6 +505,8 @@ function App(): JSX.Element {
 
     setIsProcessing(true)
     setOutputFolder('')
+    setIsPlaying(false)
+    previewCacheRef.current.clear()
 
     appendLog('开始批量处理。')
     appendLog(`输入目录：${selectedFolder}`)
@@ -533,8 +593,8 @@ function App(): JSX.Element {
 
         <div className="phase-card">
           <span>当前阶段</span>
-          <strong>Phase 1D</strong>
-          <p>实现单帧预览，并支持多背景检查边缘。</p>
+          <strong>Phase 2B</strong>
+          <p>实现动画播放预览、FPS 控制和循环播放。</p>
         </div>
       </aside>
 
@@ -793,6 +853,28 @@ function App(): JSX.Element {
                   ? keyFrameIndexes.map((index) => index + 1).join(' / ')
                   : '-'}
               </span>
+            </div>
+            <div className="playback-controls">
+              <button onClick={handleTogglePlayback} disabled={frameFiles.length === 0}>
+                {isPlaying ? '暂停' : '播放'}
+              </button>
+
+              <label className="playback-fps">
+                <span>播放 FPS</span>
+                <input
+                  type="number"
+                  min="1"
+                  max="60"
+                  value={playbackFps}
+                  onChange={(event) => handlePlaybackFpsChange(Number(event.target.value))}
+                />
+              </label>
+
+              <div className="playback-status">
+                {frameFiles.length > 0
+                  ? `${isPlaying ? '播放中' : '已暂停'} · ${previewTitle} · ${currentFrameIndex + 1} / ${frameFiles.length} · 循环`
+                  : '等待序列帧'}
+              </div>
             </div>
             <div className="preview-tabs">
               <button

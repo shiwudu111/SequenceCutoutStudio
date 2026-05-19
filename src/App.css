@@ -620,3 +620,55 @@ button:disabled {
   background: #f8fafc;
   border: 1px solid #dbe3ef;
 }
+.playback-controls {
+  display: grid;
+  grid-template-columns: auto 150px minmax(180px, 1fr);
+  gap: 8px;
+  align-items: center;
+  margin-top: 10px;
+}
+
+.playback-controls button {
+  border: 0;
+  border-radius: 11px;
+  padding: 8px 14px;
+  color: #ffffff;
+  background: #5166f0;
+  font-weight: 800;
+}
+
+.playback-controls button:hover:not(:disabled) {
+  background: #4054d8;
+}
+
+.playback-fps {
+  display: grid;
+  gap: 4px;
+  color: #64748b;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.playback-fps input {
+  width: 100%;
+  box-sizing: border-box;
+  border: 1px solid #dbe3ef;
+  border-radius: 10px;
+  padding: 7px 9px;
+  background: #ffffff;
+  color: #334158;
+  font-weight: 700;
+}
+
+.playback-status {
+  overflow: hidden;
+  padding: 8px 12px;
+  border-radius: 11px;
+  color: #334158;
+  background: #f8fafc;
+  border: 1px solid #dbe3ef;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 13px;
+  font-weight: 700;
+}
