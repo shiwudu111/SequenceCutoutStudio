@@ -18,80 +18,14 @@ process.env.VITE_PUBLIC = VITE_DEV_SERVER_URL
 
 let win: BrowserWindow | null
 
-const DEV_CORE_DIR = process.env.SCS_DEV_CORE_DIR ?? 'E:\\cuts'
-const DEV_FFMPEG_EXE =
-  process.env.SCS_DEV_FFMPEG_EXE ?? 'D:\\Program Files\\FFmpeg\\bin\\ffmpeg.exe'
-const DEV_REMBG_EXE =
-  process.env.SCS_DEV_REMBG_EXE ?? 'D:\\Program Files\\rembg\\.venv\\Scripts\\rembg.exe'
-const DEV_PYTHON_EXE =
-  process.env.SCS_DEV_PYTHON_EXE ?? 'D:\\Program Files\\rembg\\.venv\\Scripts\\python.exe'
-const DEV_POSTPROCESS_SCRIPT =
-  process.env.SCS_DEV_POSTPROCESS_SCRIPT ?? 'E:\\cuts\\postprocess\\batch_clean_cutout_soft.py'
-const DEV_MODEL_DIR = process.env.SCS_DEV_MODEL_DIR ?? 'D:\\Program Files\\rembg\\models'
-
+const CORE_DIR = 'E:\\cuts'
+const FFMPEG_EXE = 'D:\\Program Files\\FFmpeg\\bin\\ffmpeg.exe'
+const REMBG_EXE = 'D:\\Program Files\\rembg\\.venv\\Scripts\\rembg.exe'
+const PYTHON_EXE = 'D:\\Program Files\\rembg\\.venv\\Scripts\\python.exe'
+const POSTPROCESS_SCRIPT = 'E:\\cuts\\postprocess\\batch_clean_cutout_soft.py'
+const MODEL_DIR = 'D:\\Program Files\\rembg\\models'
 const PROCESS_CONFIG_FILE_NAME = 'process-config.json'
 const RAW_MANIFEST_FILE_NAME = '.raw-manifest.json'
-
-type RuntimePaths = {
-  rootDir: string
-  toolsDir: string
-  ffmpegExe: string
-  rembgExe: string
-  pythonExe: string
-  postprocessScript: string
-  modelDir: string
-  presetsDir: string
-  presetFile: string
-  samplesDir: string
-  logsDir: string
-  projectsDir: string
-}
-
-function getPortableRootDir(): string {
-  if (app.isPackaged) {
-    return path.dirname(process.execPath)
-  }
-
-  return process.env.SCS_PORTABLE_ROOT ?? DEV_CORE_DIR
-}
-
-function getRuntimePaths(): RuntimePaths {
-  const rootDir = getPortableRootDir()
-
-  if (!app.isPackaged && !process.env.SCS_PORTABLE_ROOT) {
-    return {
-      rootDir: DEV_CORE_DIR,
-      toolsDir: path.join(DEV_CORE_DIR, 'tools'),
-      ffmpegExe: DEV_FFMPEG_EXE,
-      rembgExe: DEV_REMBG_EXE,
-      pythonExe: DEV_PYTHON_EXE,
-      postprocessScript: DEV_POSTPROCESS_SCRIPT,
-      modelDir: DEV_MODEL_DIR,
-      presetsDir: path.join(DEV_CORE_DIR, 'presets'),
-      presetFile: path.join(DEV_CORE_DIR, 'presets', 'default.json'),
-      samplesDir: path.join(DEV_CORE_DIR, 'samples'),
-      logsDir: path.join(DEV_CORE_DIR, 'logs'),
-      projectsDir: path.join(DEV_CORE_DIR, 'projects')
-    }
-  }
-
-  const toolsDir = path.join(rootDir, 'tools')
-
-  return {
-    rootDir,
-    toolsDir,
-    ffmpegExe: path.join(toolsDir, 'ffmpeg', 'ffmpeg.exe'),
-    rembgExe: path.join(toolsDir, 'rembg', '.venv', 'Scripts', 'rembg.exe'),
-    pythonExe: path.join(toolsDir, 'rembg', '.venv', 'Scripts', 'python.exe'),
-    postprocessScript: path.join(toolsDir, 'postprocess', 'batch_clean_cutout_soft.py'),
-    modelDir: path.join(toolsDir, 'models'),
-    presetsDir: path.join(rootDir, 'presets'),
-    presetFile: path.join(rootDir, 'presets', 'default.json'),
-    samplesDir: path.join(rootDir, 'samples'),
-    logsDir: path.join(rootDir, 'logs'),
-    projectsDir: path.join(rootDir, 'projects')
-  }
-}
 
 type PngInfo = {
   width: number
@@ -532,8 +466,7 @@ async function extractVideoFrames(args: {
 
   ffmpegArgs.push('-vf', `fps=${fps}`, outputPattern)
 
-  const runtimePaths = getRuntimePaths()
-  const ffmpegResult = await runCommand(runtimePaths.ffmpegExe, ffmpegArgs)
+  const ffmpegResult = await runCommand(FFMPEG_EXE, ffmpegArgs)
 
   const outputCount = await countPngFiles(outputDir)
 
@@ -571,7 +504,6 @@ async function runSingleCutout(args: {
   alphaLow: number
   shrink: number
 }) {
-  const runtimePaths = getRuntimePaths()
   const inputDir = path.resolve(args.inputDir)
   const parentDir = path.dirname(inputDir)
   const inputName = path.basename(inputDir)
@@ -608,11 +540,11 @@ async function runSingleCutout(args: {
   }
 
   const rembgResult = await runCommand(
-    runtimePaths.rembgExe,
+    REMBG_EXE,
     ['i', '-m', 'isnet-general-use', originalFile, rawFile],
     {
       env: {
-        U2NET_HOME: runtimePaths.modelDir
+        U2NET_HOME: MODEL_DIR
       }
     }
   )
@@ -636,8 +568,8 @@ async function runSingleCutout(args: {
     }
   }
 
-  const postprocessResult = await runCommand(runtimePaths.pythonExe, [
-    runtimePaths.postprocessScript,
+  const postprocessResult = await runCommand(PYTHON_EXE, [
+    POSTPROCESS_SCRIPT,
     '--original',
     originalFile,
     '--raw',
@@ -694,14 +626,13 @@ async function runBatchCutout(args: {
   shrink: number
   skipRembg?: boolean
 }) {
-  const runtimePaths = getRuntimePaths()
   const inputDir = path.resolve(args.inputDir)
   const parentDir = path.dirname(inputDir)
   const inputName = path.basename(inputDir)
 
   const rawDir = path.join(parentDir, `${inputName}_general_raw`)
   const outputDir = path.join(parentDir, `${inputName}_soft_${args.preset}`)
-  const logPath = path.join(runtimePaths.logsDir, `${inputName}_soft_${args.preset}.json`)
+  const logPath = path.join(CORE_DIR, 'logs', `${inputName}_soft_${args.preset}.json`)
 
   await fs.mkdir(rawDir, { recursive: true })
   await fs.mkdir(outputDir, { recursive: true })
@@ -760,11 +691,11 @@ async function runBatchCutout(args: {
     }
   } else {
     rembgResult = await runCommand(
-      runtimePaths.rembgExe,
+      REMBG_EXE,
       ['p', '-m', 'isnet-general-use', inputDir, rawDir],
       {
         env: {
-          U2NET_HOME: runtimePaths.modelDir
+          U2NET_HOME: MODEL_DIR
         }
       }
     )
@@ -798,8 +729,8 @@ async function runBatchCutout(args: {
     })
   }
 
-  const postprocessResult = await runCommand(runtimePaths.pythonExe, [
-    runtimePaths.postprocessScript,
+  const postprocessResult = await runCommand(PYTHON_EXE, [
+    POSTPROCESS_SCRIPT,
     '--original',
     inputDir,
     '--raw',
