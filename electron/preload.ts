@@ -33,10 +33,15 @@ contextBridge.exposeInMainWorld('cutoutAPI', {
     preset: 'C' | 'F' | 'I' | 'Custom'
     alphaLow: number
     shrink: number
+    skipRembg?: boolean
   }) => ipcRenderer.invoke('process:run-batch-cutout', args),
 
   readImageAsDataUrl: (filePath: string) =>
     ipcRenderer.invoke('preview:read-image-data-url', filePath),
+  
+  selectBackgroundImageFile: () =>
+  ipcRenderer.invoke('dialog:select-background-image-file'),
+
   saveProcessConfig: (args: {
     folderPath: string
     config: {
@@ -55,7 +60,8 @@ contextBridge.exposeInMainWorld('cutoutAPI', {
       videoDuration: number
       videoOutputPrefix: string
       playbackFps: number
-      previewBackground: 'checker' | 'black' | 'white' | 'gray'
+      previewBackground: 'checker' | 'black' | 'white' | 'gray' | 'custom'
+      customPreviewBackground: string
       lastFrameName: string
       activePreviewTab: 'original' | 'raw' | 'soft'
     }
@@ -63,7 +69,7 @@ contextBridge.exposeInMainWorld('cutoutAPI', {
 
   loadProcessConfig: (folderPath: string) =>
     ipcRenderer.invoke('config:load-process-config', folderPath),
-  
+
   openFolder: (folderPath: string) =>
     ipcRenderer.invoke('shell:open-folder', folderPath)
 })

@@ -27,6 +27,7 @@ declare global {
         preset: CutoutPreset
         alphaLow: number
         shrink: number
+        skipRembg?: boolean
     }
     type RunSingleCutoutArgs = {
         inputDir: string
@@ -104,6 +105,7 @@ declare global {
         dataUrl: string
         message?: string
     }
+    type SelectBackgroundImageResult = string | null
     type ProcessConfig = {
         version: 1
         updatedAt: string
@@ -120,7 +122,8 @@ declare global {
         videoDuration: number
         videoOutputPrefix: string
         playbackFps: number
-        previewBackground: 'checker' | 'black' | 'white' | 'gray'
+        previewBackground: 'checker' | 'black' | 'white' | 'gray' | 'custom'
+        customPreviewBackgroundPath: string
         lastFrameName: string
         activePreviewTab: 'original' | 'raw' | 'soft'
     }
@@ -147,6 +150,8 @@ declare global {
             runSingleCutout: (args: RunSingleCutoutArgs) => Promise<SingleCutoutResult>
             runBatchCutout: (args: RunBatchCutoutArgs) => Promise<BatchCutoutResult>
             readImageAsDataUrl: (filePath: string) => Promise<ImageDataUrlResult>
+            selectBackgroundImageFile: () => Promise<string | null>
+            selectBackgroundImage: () => Promise<SelectBackgroundImageResult>
             saveProcessConfig: (args: SaveProcessConfigArgs) => Promise<ProcessConfigResult>
             loadProcessConfig: (folderPath: string) => Promise<ProcessConfigResult>
             openFolder: (folderPath: string) => Promise<void>

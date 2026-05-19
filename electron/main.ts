@@ -25,6 +25,7 @@ const PYTHON_EXE = 'D:\\Program Files\\rembg\\.venv\\Scripts\\python.exe'
 const POSTPROCESS_SCRIPT = 'E:\\cuts\\postprocess\\batch_clean_cutout_soft.py'
 const MODEL_DIR = 'D:\\Program Files\\rembg\\models'
 const PROCESS_CONFIG_FILE_NAME = 'process-config.json'
+const RAW_MANIFEST_FILE_NAME = '.raw-manifest.json'
 
 type PngInfo = {
   width: number
@@ -123,6 +124,98 @@ async function countPngFiles(folderPath: string): Promise<number> {
     return entries.filter((entry) => entry.isFile() && entry.name.toLowerCase().endsWith('.png')).length
   } catch {
     return 0
+  }
+}
+
+async function listPngFileNames(folderPath: string): Promise<string[]> {
+  try {
+    const entries = await fs.readdir(folderPath, { withFileTypes: true })
+
+    return entries
+      .filter((entry) => entry.isFile() && entry.name.toLowerCase().endsWith('.png'))
+      .map((entry) => entry.name)
+      .sort((a, b) => a.localeCompare(b, undefined, { numeric: true }))
+  } catch {
+    return []
+  }
+}
+
+async function writeRawManifest(args: {
+  inputDir: string
+  rawDir: string
+  inputFiles: string[]
+  rawFiles: string[]
+}) {
+  const manifestPath = path.join(args.rawDir, RAW_MANIFEST_FILE_NAME)
+
+  const payload = {
+    version: 1,
+    createdAt: new Date().toISOString(),
+    inputDir: args.inputDir,
+    rawDir: args.rawDir,
+    model: 'isnet-general-use',
+    inputCount: args.inputFiles.length,
+    rawCount: args.rawFiles.length,
+    files: args.inputFiles
+  }
+
+  await fs.writeFile(manifestPath, JSON.stringify(payload, null, 2), 'utf8')
+
+  return manifestPath
+}
+
+async function validateRawManifest(args: {
+  inputDir: string
+  rawDir: string
+}) {
+  const manifestPath = path.join(args.rawDir, RAW_MANIFEST_FILE_NAME)
+
+  try {
+    const raw = await fs.readFile(manifestPath, 'utf8')
+    const manifest = JSON.parse(raw)
+
+    const inputFiles = await listPngFileNames(args.inputDir)
+    const rawFiles = await listPngFileNames(args.rawDir)
+
+    if (manifest.inputDir !== args.inputDir) {
+      return {
+        ok: false,
+        message: '无法跳过 rembg：Raw 缓存来源不是当前输入目录。请先完整批量处理一次。'
+      }
+    }
+
+    if (inputFiles.length === 0) {
+      return {
+        ok: false,
+        message: '无法跳过 rembg：输入目录没有 PNG 文件。'
+      }
+    }
+
+    if (rawFiles.length !== inputFiles.length) {
+      return {
+        ok: false,
+        message: `无法跳过 rembg：Raw 数量不一致。原图 ${inputFiles.length} 张，Raw ${rawFiles.length} 张。请先完整批量处理一次。`
+      }
+    }
+
+    const missingFiles = inputFiles.filter((fileName) => !rawFiles.includes(fileName))
+
+    if (missingFiles.length > 0) {
+      return {
+        ok: false,
+        message: `无法跳过 rembg：Raw 缺少 ${missingFiles.length} 张对应文件。请先完整批量处理一次。`
+      }
+    }
+
+    return {
+      ok: true,
+      message: 'Raw 缓存有效。'
+    }
+  } catch {
+    return {
+      ok: false,
+      message: '无法跳过 rembg：没有找到有效 Raw 缓存记录。请先完整批量处理一次。'
+    }
   }
 }
 
@@ -247,7 +340,8 @@ async function saveProcessConfig(args: {
     videoDuration: number
     videoOutputPrefix: string
     playbackFps: number
-    previewBackground: 'checker' | 'black' | 'white' | 'gray'
+    previewBackground: 'checker' | 'black' | 'white' | 'gray' | 'custom'
+    customPreviewBackgroundPath: string
     lastFrameName: string
     activePreviewTab: 'original' | 'raw' | 'soft'
   }
@@ -530,6 +624,7 @@ async function runBatchCutout(args: {
   preset: 'C' | 'F' | 'I' | 'Custom'
   alphaLow: number
   shrink: number
+  skipRembg?: boolean
 }) {
   const inputDir = path.resolve(args.inputDir)
   const parentDir = path.dirname(inputDir)
@@ -563,32 +658,75 @@ async function runBatchCutout(args: {
     }
   }
 
-  const rembgResult = await runCommand(
-    REMBG_EXE,
-    ['p', '-m', 'isnet-general-use', inputDir, rawDir],
-    {
-      env: {
-        U2NET_HOME: MODEL_DIR
+  const skipRembg = args.skipRembg === true
+
+  let rembgResult: RunCommandResult = {
+    code: 0,
+    stdout: skipRembg ? '已跳过 rembg，复用现有 general_raw。' : '',
+    stderr: ''
+  }
+
+  if (skipRembg) {
+    const validation = await validateRawManifest({
+      inputDir,
+      rawDir
+    })
+
+    if (!validation.ok) {
+      return {
+        ok: false,
+        message: validation.message,
+        inputDir,
+        rawDir,
+        outputDir,
+        inputCount,
+        rawCount: await countPngFiles(rawDir),
+        outputCount: 0,
+        preset: args.preset,
+        alphaLow: args.alphaLow,
+        shrink: args.shrink,
+        rembgLog: '',
+        postprocessLog: ''
       }
     }
-  )
+  } else {
+    rembgResult = await runCommand(
+      REMBG_EXE,
+      ['p', '-m', 'isnet-general-use', inputDir, rawDir],
+      {
+        env: {
+          U2NET_HOME: MODEL_DIR
+        }
+      }
+    )
 
-  if (rembgResult.code !== 0) {
-    return {
-      ok: false,
-      message: 'rembg 批量抠图失败。',
+    if (rembgResult.code !== 0) {
+      return {
+        ok: false,
+        message: 'rembg 批量抠图失败。',
+        inputDir,
+        rawDir,
+        outputDir,
+        inputCount,
+        rawCount: await countPngFiles(rawDir),
+        outputCount: 0,
+        preset: args.preset,
+        alphaLow: args.alphaLow,
+        shrink: args.shrink,
+        rembgLog: `${rembgResult.stdout}\n${rembgResult.stderr}`,
+        postprocessLog: ''
+      }
+    }
+
+    const inputFiles = await listPngFileNames(inputDir)
+    const rawFiles = await listPngFileNames(rawDir)
+
+    await writeRawManifest({
       inputDir,
       rawDir,
-      outputDir,
-      inputCount,
-      rawCount: await countPngFiles(rawDir),
-      outputCount: 0,
-      preset: args.preset,
-      alphaLow: args.alphaLow,
-      shrink: args.shrink,
-      rembgLog: `${rembgResult.stdout}\n${rembgResult.stderr}`,
-      postprocessLog: ''
-    }
+      inputFiles,
+      rawFiles
+    })
   }
 
   const postprocessResult = await runCommand(PYTHON_EXE, [
@@ -630,7 +768,12 @@ async function runBatchCutout(args: {
 
   return {
     ok: inputCount === outputCount,
-    message: inputCount === outputCount ? '处理完成，输入输出数量一致。' : '处理完成，但输入输出数量不一致。',
+    message:
+      inputCount === outputCount
+        ? skipRembg
+          ? '只重跑边缘完成，输入输出数量一致。'
+          : '处理完成，输入输出数量一致。'
+        : '处理完成，但输入输出数量不一致。',
     inputDir,
     rawDir,
     outputDir,
@@ -667,6 +810,25 @@ ipcMain.handle('dialog:select-video-file', async () => {
       {
         name: 'Video',
         extensions: ['mp4', 'mov', 'webm', 'mkv']
+      }
+    ]
+  })
+
+  if (result.canceled || result.filePaths.length === 0) {
+    return null
+  }
+
+  return result.filePaths[0]
+})
+
+ipcMain.handle('dialog:select-background-image-file', async () => {
+  const result = await dialog.showOpenDialog({
+    title: '选择预览背景图片',
+    properties: ['openFile'],
+    filters: [
+      {
+        name: 'Image',
+        extensions: ['png', 'jpg', 'jpeg', 'webp']
       }
     ]
   })

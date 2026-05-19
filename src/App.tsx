@@ -2,7 +2,7 @@ import { useEffect, useRef, useState, type DragEvent } from 'react'
 import './App.css'
 
 type Preset = 'C' | 'F' | 'I' | 'Custom'
-type PreviewBackground = 'checker' | 'black' | 'white' | 'gray'
+type PreviewBackground = 'checker' | 'black' | 'white' | 'gray' | 'custom'
 type PreviewTab = 'original' | 'raw' | 'soft'
 type EdgePresetParams = {
   label: string
@@ -66,6 +66,8 @@ function App(): JSX.Element {
   const [videoDuration, setVideoDuration] = useState(4)
   const [videoOutputPrefix, setVideoOutputPrefix] = useState('sample')
   const [previewBackground, setPreviewBackground] = useState<PreviewBackground>('black')
+  const [customPreviewBackgroundPath, setCustomPreviewBackgroundPath] = useState('')
+  const [customPreviewBackgroundDataUrl, setCustomPreviewBackgroundDataUrl] = useState('')
   const [activePreviewTab, setActivePreviewTab] = useState<PreviewTab>('original')
   const [previewFrameName, setPreviewFrameName] = useState('')
   const [previewImages, setPreviewImages] = useState<{
@@ -529,6 +531,7 @@ function App(): JSX.Element {
       videoOutputPrefix,
       playbackFps,
       previewBackground,
+      customPreviewBackgroundPath,
       lastFrameName: previewFrameName,
       activePreviewTab
     }
@@ -554,6 +557,22 @@ function App(): JSX.Element {
     setVideoOutputPrefix(config.videoOutputPrefix || videoOutputPrefix)
     setPlaybackFps(nextPlaybackFps)
     setPreviewBackground(nextPreviewBackground)
+
+    if (config.customPreviewBackgroundPath) {
+      setCustomPreviewBackgroundPath(config.customPreviewBackgroundPath)
+
+      const bgResult = await window.cutoutAPI.readImageAsDataUrl(config.customPreviewBackgroundPath)
+
+      if (bgResult.ok) {
+        setCustomPreviewBackgroundDataUrl(bgResult.dataUrl)
+      } else {
+        appendLog(`背景图读取失败：${bgResult.message ?? config.customPreviewBackgroundPath}`)
+      }
+    } else {
+      setCustomPreviewBackgroundPath('')
+      setCustomPreviewBackgroundDataUrl('')
+    }
+
     setActivePreviewTab(nextActivePreviewTab)
 
     if (config.lastFrameName && frameFiles.length > 0) {
@@ -611,6 +630,28 @@ function App(): JSX.Element {
     await applyProcessConfig(result.config)
 
     appendLog(`配置已读取：${result.configPath}`)
+  }
+
+  const handleSelectCustomPreviewBackground = async (): Promise<void> => {
+    const imagePath = await window.cutoutAPI.selectBackgroundImageFile()
+
+    if (!imagePath) {
+      appendLog('已取消选择背景图。')
+      return
+    }
+
+    const result = await window.cutoutAPI.readImageAsDataUrl(imagePath)
+
+    if (!result.ok) {
+      appendLog(`背景图读取失败：${result.message ?? imagePath}`)
+      return
+    }
+
+    setCustomPreviewBackgroundPath(imagePath)
+    setCustomPreviewBackgroundDataUrl(result.dataUrl)
+    setPreviewBackground('custom')
+
+    appendLog(`已选择预览背景图：${imagePath}`)
   }
 
   const handlePresetChange = (nextPreset: Preset): void => {
@@ -770,7 +811,8 @@ function App(): JSX.Element {
     appendLog(`已应用对比参数：${item.label} / AlphaLow=${item.alphaLow} / Shrink=${item.shrink}`)
   }
 
-  const handleRunBatchCutout = async (): Promise<void> => {
+  const handleRunBatchCutout = async (options?: { skipRembg?: boolean }): Promise<void> => {
+    const skipRembg = options?.skipRembg === true
     if (!selectedFolder) {
       appendLog('请先选择序列帧文件夹。')
       return
@@ -781,16 +823,17 @@ function App(): JSX.Element {
     setIsPlaying(false)
     previewCacheRef.current.clear()
 
-    appendLog('开始批量处理。')
+    appendLog(skipRembg ? '开始只重跑边缘。' : '开始批量处理。')
     appendLog(`输入目录：${selectedFolder}`)
     appendLog(`Preset：${preset} / AlphaLow=${alphaLow} / Shrink=${shrink}`)
-    appendLog('开始 rembg 批量抠图...')
+    appendLog(skipRembg ? '跳过 rembg，校验并复用 general_raw。' : '开始 rembg 批量抠图...')
 
     const result = await window.cutoutAPI.runBatchCutout({
       inputDir: selectedFolder,
       preset,
       alphaLow,
-      shrink
+      shrink,
+      skipRembg
     })
 
     appendLog(result.message ?? (result.ok ? '处理完成。' : '处理失败。'))
@@ -1047,8 +1090,23 @@ function App(): JSX.Element {
                 {isComparing ? '对比中...' : '生成对比'}
               </button>
 
-              <button className="primary-button" onClick={handleRunBatchCutout} disabled={isProcessing}>
+              <button
+                className="primary-button"
+                onClick={() => {
+                  void handleRunBatchCutout()
+                }}
+                disabled={isProcessing}
+              >
                 {isProcessing ? '处理中...' : '批量处理'}
+              </button>
+              <button
+                className="secondary-button"
+                onClick={() => {
+                  void handleRunBatchCutout({ skipRembg: true })
+                }}
+                disabled={isProcessing || !selectedFolder}
+              >
+                只重跑边缘
               </button>
               <button className="secondary-button" onClick={handleOpenOutputFolder} disabled={!outputFolder}>
                 打开输出目录
@@ -1096,10 +1154,35 @@ function App(): JSX.Element {
                 >
                   灰底
                 </button>
+
+                <button
+                  className={previewBackground === 'custom' ? 'active' : ''}
+                  onClick={() => setPreviewBackground('custom')}
+                  disabled={!customPreviewBackgroundDataUrl}
+                >
+                  背景图
+                </button>
+
+                <button onClick={handleSelectCustomPreviewBackground}>
+                  选择背景图
+                </button>
+
               </div>
             </div>
 
-            <div className={`preview-stage ${previewBackground}`}>
+            <div
+              className={`preview-stage ${previewBackground}`}
+              style={
+                previewBackground === 'custom' && customPreviewBackgroundDataUrl
+                  ? {
+                    backgroundImage: `url("${customPreviewBackgroundDataUrl}")`,
+                    backgroundSize: 'contain',
+                    backgroundPosition: 'center',
+                    backgroundRepeat: 'no-repeat'
+                  }
+                  : undefined
+              }
+            >
               {displayPreviewImage ? (
                 <img
                   className="preview-image"

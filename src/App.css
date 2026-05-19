@@ -841,3 +841,13 @@ button:disabled {
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+
+.preview-color-picker {
+  width: 34px;
+  height: 34px;
+  padding: 0;
+  border: 0;
+  border-radius: 10px;
+  background: transparent;
+  overflow: hidden;
+}
