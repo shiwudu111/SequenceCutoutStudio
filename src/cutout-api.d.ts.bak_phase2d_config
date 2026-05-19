@@ -104,38 +104,7 @@ declare global {
         dataUrl: string
         message?: string
     }
-    type ProcessConfig = {
-        version: 1
-        updatedAt: string
-        inputPath: string
-        selectedFolder: string
-        selectedVideo: string
-        assetType: string
-        frameCount: string
-        frameSize: string
-        preset: CutoutPreset
-        alphaLow: number
-        shrink: number
-        videoFps: number
-        videoDuration: number
-        videoOutputPrefix: string
-        playbackFps: number
-        previewBackground: 'checker' | 'black' | 'white' | 'gray'
-        lastFrameName: string
-        activePreviewTab: 'original' | 'raw' | 'soft'
-    }
 
-    type SaveProcessConfigArgs = {
-        folderPath: string
-        config: ProcessConfig
-    }
-
-    type ProcessConfigResult = {
-        ok: boolean
-        message?: string
-        configPath: string
-        config?: ProcessConfig
-    }
     interface Window {
         cutoutAPI: {
             selectFrameFolder: () => Promise<string | null>
@@ -147,8 +116,6 @@ declare global {
             runSingleCutout: (args: RunSingleCutoutArgs) => Promise<SingleCutoutResult>
             runBatchCutout: (args: RunBatchCutoutArgs) => Promise<BatchCutoutResult>
             readImageAsDataUrl: (filePath: string) => Promise<ImageDataUrlResult>
-            saveProcessConfig: (args: SaveProcessConfigArgs) => Promise<ProcessConfigResult>
-            loadProcessConfig: (folderPath: string) => Promise<ProcessConfigResult>
             openFolder: (folderPath: string) => Promise<void>
         }
     }

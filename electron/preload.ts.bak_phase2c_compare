@@ -23,47 +23,21 @@ contextBridge.exposeInMainWorld('cutoutAPI', {
   runSingleCutout: (args: {
     inputDir: string
     frameName: string
-    preset: 'C' | 'F' | 'I' | 'Custom'
+    preset: 'H' | 'I' | 'Custom'
     alphaLow: number
     shrink: number
   }) => ipcRenderer.invoke('process:run-single-cutout', args),
 
   runBatchCutout: (args: {
     inputDir: string
-    preset: 'C' | 'F' | 'I' | 'Custom'
+    preset: 'H' | 'I' | 'Custom'
     alphaLow: number
     shrink: number
   }) => ipcRenderer.invoke('process:run-batch-cutout', args),
 
   readImageAsDataUrl: (filePath: string) =>
     ipcRenderer.invoke('preview:read-image-data-url', filePath),
-  saveProcessConfig: (args: {
-    folderPath: string
-    config: {
-      version: 1
-      updatedAt: string
-      inputPath: string
-      selectedFolder: string
-      selectedVideo: string
-      assetType: string
-      frameCount: string
-      frameSize: string
-      preset: 'C' | 'F' | 'I' | 'Custom'
-      alphaLow: number
-      shrink: number
-      videoFps: number
-      videoDuration: number
-      videoOutputPrefix: string
-      playbackFps: number
-      previewBackground: 'checker' | 'black' | 'white' | 'gray'
-      lastFrameName: string
-      activePreviewTab: 'original' | 'raw' | 'soft'
-    }
-  }) => ipcRenderer.invoke('config:save-process-config', args),
 
-  loadProcessConfig: (folderPath: string) =>
-    ipcRenderer.invoke('config:load-process-config', folderPath),
-  
   openFolder: (folderPath: string) =>
     ipcRenderer.invoke('shell:open-folder', folderPath)
 })

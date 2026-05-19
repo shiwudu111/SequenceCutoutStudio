@@ -24,7 +24,6 @@ const REMBG_EXE = 'D:\\Program Files\\rembg\\.venv\\Scripts\\rembg.exe'
 const PYTHON_EXE = 'D:\\Program Files\\rembg\\.venv\\Scripts\\python.exe'
 const POSTPROCESS_SCRIPT = 'E:\\cuts\\postprocess\\batch_clean_cutout_soft.py'
 const MODEL_DIR = 'D:\\Program Files\\rembg\\models'
-const PROCESS_CONFIG_FILE_NAME = 'process-config.json'
 
 type PngInfo = {
   width: number
@@ -226,79 +225,6 @@ async function readImageAsDataUrl(filePath: string) {
     ok: true,
     filePath: resolvedPath,
     dataUrl: `data:${mimeType};base64,${buffer.toString('base64')}`
-  }
-}
-
-async function saveProcessConfig(args: {
-  folderPath: string
-  config: {
-    version: 1
-    updatedAt: string
-    inputPath: string
-    selectedFolder: string
-    selectedVideo: string
-    assetType: string
-    frameCount: string
-    frameSize: string
-    preset: 'C' | 'F' | 'I' | 'Custom'
-    alphaLow: number
-    shrink: number
-    videoFps: number
-    videoDuration: number
-    videoOutputPrefix: string
-    playbackFps: number
-    previewBackground: 'checker' | 'black' | 'white' | 'gray'
-    lastFrameName: string
-    activePreviewTab: 'original' | 'raw' | 'soft'
-  }
-}) {
-  const folderPath = path.resolve(args.folderPath)
-  const configPath = path.join(folderPath, PROCESS_CONFIG_FILE_NAME)
-
-  await fs.mkdir(folderPath, { recursive: true })
-
-  const payload = {
-    ...args.config,
-    version: 1 as const,
-    updatedAt: new Date().toISOString(),
-    selectedFolder: folderPath
-  }
-
-  await fs.writeFile(configPath, JSON.stringify(payload, null, 2), 'utf8')
-
-  return {
-    ok: true,
-    message: '配置已保存。',
-    configPath,
-    config: payload
-  }
-}
-
-async function loadProcessConfig(folderPath: string) {
-  const resolvedFolderPath = path.resolve(folderPath)
-  const configPath = path.join(resolvedFolderPath, PROCESS_CONFIG_FILE_NAME)
-
-  try {
-    const raw = await fs.readFile(configPath, 'utf8')
-    const config = JSON.parse(raw)
-
-    return {
-      ok: true,
-      message: '配置已读取。',
-      configPath,
-      config
-    }
-  } catch (error) {
-    return {
-      ok: false,
-      message:
-        error instanceof Error && 'code' in error && error.code === 'ENOENT'
-          ? '没有找到 process-config.json。'
-          : error instanceof Error
-            ? error.message
-            : String(error),
-      configPath
-    }
   }
 }
 
@@ -764,29 +690,6 @@ ipcMain.handle('process:run-batch-cutout', async (_event, args) => {
       shrink: args?.shrink ?? 0.78,
       rembgLog: '',
       postprocessLog: ''
-    }
-  }
-})
-ipcMain.handle('config:save-process-config', async (_event, args) => {
-  try {
-    return await saveProcessConfig(args)
-  } catch (error) {
-    return {
-      ok: false,
-      message: error instanceof Error ? error.message : String(error),
-      configPath: ''
-    }
-  }
-})
-
-ipcMain.handle('config:load-process-config', async (_event, folderPath: string) => {
-  try {
-    return await loadProcessConfig(folderPath)
-  } catch (error) {
-    return {
-      ok: false,
-      message: error instanceof Error ? error.message : String(error),
-      configPath: ''
     }
   }
 })

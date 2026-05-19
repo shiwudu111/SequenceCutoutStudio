@@ -81,8 +81,6 @@ function App(): JSX.Element {
   const [isTestingSingle, setIsTestingSingle] = useState(false)
   const [isComparing, setIsComparing] = useState(false)
   const [compareItems, setCompareItems] = useState<CompareItem[]>([])
-  const [configPath, setConfigPath] = useState('')
-  const [configMessage, setConfigMessage] = useState('尚未保存配置')
   const [activeComparePreset, setActiveComparePreset] = useState<Preset | null>(null)
   const [isDraggingInput, setIsDraggingInput] = useState(false)
   const [isPlaying, setIsPlaying] = useState(false)
@@ -299,8 +297,6 @@ function App(): JSX.Element {
 
     setSelectedFolder(folderPath)
     setInputPath(folderPath)
-    setConfigPath('')
-    setConfigMessage('尚未保存配置')
     setAssetType('PNG 序列帧')
     setFrameCount(String(result.pngCount))
     setFrameSize(`${result.width} × ${result.height}`)
@@ -386,8 +382,6 @@ function App(): JSX.Element {
 
     setPreviewFrameName('')
     setActivePreviewTab('original')
-    setConfigPath('')
-    setConfigMessage('尚未保存配置')
     setPreviewImages({
       original: '',
       raw: '',
@@ -509,108 +503,6 @@ function App(): JSX.Element {
     appendLog('开始扫描切帧输出目录...')
     const scanResult = await window.cutoutAPI.scanFrameFolder(result.outputDir)
     await applyFrameFolderScanResult(result.outputDir, scanResult)
-  }
-
-  const buildProcessConfig = (): ProcessConfig => {
-    return {
-      version: 1,
-      updatedAt: new Date().toISOString(),
-      inputPath,
-      selectedFolder,
-      selectedVideo,
-      assetType,
-      frameCount,
-      frameSize,
-      preset,
-      alphaLow,
-      shrink,
-      videoFps,
-      videoDuration,
-      videoOutputPrefix,
-      playbackFps,
-      previewBackground,
-      lastFrameName: previewFrameName,
-      activePreviewTab
-    }
-  }
-
-  const applyProcessConfig = async (config: ProcessConfig): Promise<void> => {
-    const nextPreset = config.preset ?? preset
-    const nextAlphaLow = Number.isFinite(config.alphaLow) ? config.alphaLow : alphaLow
-    const nextShrink = Number.isFinite(config.shrink) ? config.shrink : shrink
-    const nextVideoFps = Number.isFinite(config.videoFps) ? config.videoFps : videoFps
-    const nextVideoDuration = Number.isFinite(config.videoDuration)
-      ? config.videoDuration
-      : videoDuration
-    const nextPlaybackFps = Number.isFinite(config.playbackFps) ? config.playbackFps : playbackFps
-    const nextPreviewBackground = config.previewBackground ?? previewBackground
-    const nextActivePreviewTab = config.activePreviewTab ?? activePreviewTab
-
-    setPreset(nextPreset)
-    setAlphaLow(nextAlphaLow)
-    setShrink(nextShrink)
-    setVideoFps(nextVideoFps)
-    setVideoDuration(nextVideoDuration)
-    setVideoOutputPrefix(config.videoOutputPrefix || videoOutputPrefix)
-    setPlaybackFps(nextPlaybackFps)
-    setPreviewBackground(nextPreviewBackground)
-    setActivePreviewTab(nextActivePreviewTab)
-
-    if (config.lastFrameName && frameFiles.length > 0) {
-      const frameIndex = frameFiles.findIndex((fileName) => fileName === config.lastFrameName)
-
-      if (frameIndex >= 0) {
-        await loadFrameByIndex(frameIndex)
-      }
-    }
-
-    appendLog(
-      `已应用配置：${nextPreset} / AlphaLow=${nextAlphaLow} / Shrink=${nextShrink} / 播放FPS=${nextPlaybackFps} / 背景=${nextPreviewBackground}`
-    )
-  }
-
-  const handleSaveProcessConfig = async (): Promise<void> => {
-    if (!selectedFolder) {
-      appendLog('请先选择序列帧文件夹，或先从视频切成序列帧。')
-      return
-    }
-
-    const result = await window.cutoutAPI.saveProcessConfig({
-      folderPath: selectedFolder,
-      config: buildProcessConfig()
-    })
-
-    if (!result.ok) {
-      appendLog(`配置保存失败：${result.message ?? '未知错误'}`)
-      setConfigMessage(result.message ?? '配置保存失败')
-      return
-    }
-
-    setConfigPath(result.configPath)
-    setConfigMessage('配置已保存')
-    appendLog(`配置已保存：${result.configPath}`)
-  }
-
-  const handleLoadProcessConfig = async (): Promise<void> => {
-    if (!selectedFolder) {
-      appendLog('请先选择序列帧文件夹，或先从视频切成序列帧。')
-      return
-    }
-
-    const result = await window.cutoutAPI.loadProcessConfig(selectedFolder)
-
-    if (!result.ok || !result.config) {
-      appendLog(`配置读取失败：${result.message ?? '未知错误'}`)
-      setConfigPath(result.configPath)
-      setConfigMessage(result.message ?? '配置读取失败')
-      return
-    }
-
-    setConfigPath(result.configPath)
-    setConfigMessage('配置已读取')
-    await applyProcessConfig(result.config)
-
-    appendLog(`配置已读取：${result.configPath}`)
   }
 
   const handlePresetChange = (nextPreset: Preset): void => {
@@ -1053,18 +945,6 @@ function App(): JSX.Element {
               <button className="secondary-button" onClick={handleOpenOutputFolder} disabled={!outputFolder}>
                 打开输出目录
               </button>
-              <button className="secondary-button" onClick={handleSaveProcessConfig} disabled={!selectedFolder}>
-                保存配置
-              </button>
-
-              <button className="secondary-button" onClick={handleLoadProcessConfig} disabled={!selectedFolder}>
-                读取配置
-              </button>
-            </div>
-
-            <div className="config-status">
-              <span>{configMessage}</span>
-              {configPath ? <strong>{configPath}</strong> : null}
             </div>
           </section>
 

@@ -1,47 +1,10 @@
 import { useEffect, useRef, useState, type DragEvent } from 'react'
 import './App.css'
 
-type Preset = 'C' | 'F' | 'I' | 'Custom'
+type Preset = 'H' | 'I' | 'Custom'
 type PreviewBackground = 'checker' | 'black' | 'white' | 'gray'
 type PreviewTab = 'original' | 'raw' | 'soft'
-type EdgePresetParams = {
-  label: string
-  alphaLow: number
-  shrink: number
-}
 
-type CompareStatus = 'idle' | 'running' | 'done' | 'error'
-
-type CompareItem = {
-  preset: Preset
-  label: string
-  alphaLow: number
-  shrink: number
-  status: CompareStatus
-  message?: string
-  rawFile?: string
-  outputFile?: string
-  dataUrl?: string
-}
-const EDGE_PRESET_PARAMS: Record<Exclude<Preset, 'Custom'>, EdgePresetParams> = {
-  C: {
-    label: 'C 轻柔',
-    alphaLow: 24,
-    shrink: 0.35
-  },
-  F: {
-    label: 'F 标准',
-    alphaLow: 36,
-    shrink: 0.58
-  },
-  I: {
-    label: 'I 干净',
-    alphaLow: 48,
-    shrink: 0.78
-  }
-}
-
-const COMPARE_PRESETS: Preset[] = ['C', 'F', 'I', 'Custom']
 function App(): JSX.Element {
   const [inputPath, setInputPath] = useState('尚未选择素材')
   const [selectedFolder, setSelectedFolder] = useState('')
@@ -79,11 +42,6 @@ function App(): JSX.Element {
   })
   const [isProcessing, setIsProcessing] = useState(false)
   const [isTestingSingle, setIsTestingSingle] = useState(false)
-  const [isComparing, setIsComparing] = useState(false)
-  const [compareItems, setCompareItems] = useState<CompareItem[]>([])
-  const [configPath, setConfigPath] = useState('')
-  const [configMessage, setConfigMessage] = useState('尚未保存配置')
-  const [activeComparePreset, setActiveComparePreset] = useState<Preset | null>(null)
   const [isDraggingInput, setIsDraggingInput] = useState(false)
   const [isPlaying, setIsPlaying] = useState(false)
   const [playbackFps, setPlaybackFps] = useState(12)
@@ -169,8 +127,6 @@ function App(): JSX.Element {
 
     setCurrentFrameIndex(safeIndex)
     setPreviewFrameName(frameName)
-    setActiveComparePreset(null)
-    setCompareItems([])
 
     await loadPreviewImage('original', joinWindowsPath(folderOverride, frameName), true)
 
@@ -181,36 +137,6 @@ function App(): JSX.Element {
     if (softFolderOverride) {
       await loadPreviewImage('soft', joinWindowsPath(softFolderOverride, frameName), true)
     }
-  }
-
-  const resolvePresetParams = (targetPreset: Preset): EdgePresetParams => {
-    if (targetPreset === 'Custom') {
-      return {
-        label: 'Custom 自定义',
-        alphaLow,
-        shrink
-      }
-    }
-
-    return EDGE_PRESET_PARAMS[targetPreset]
-  }
-
-  const createCompareItem = (targetPreset: Preset): CompareItem => {
-    const params = resolvePresetParams(targetPreset)
-
-    return {
-      preset: targetPreset,
-      label: params.label,
-      alphaLow: params.alphaLow,
-      shrink: params.shrink,
-      status: 'idle'
-    }
-  }
-
-  const updateCompareItem = (targetPreset: Preset, patch: Partial<CompareItem>): void => {
-    setCompareItems((prev) =>
-      prev.map((item) => (item.preset === targetPreset ? { ...item, ...patch } : item))
-    )
   }
 
   const handlePreviousFrame = async (): Promise<void> => {
@@ -299,8 +225,6 @@ function App(): JSX.Element {
 
     setSelectedFolder(folderPath)
     setInputPath(folderPath)
-    setConfigPath('')
-    setConfigMessage('尚未保存配置')
     setAssetType('PNG 序列帧')
     setFrameCount(String(result.pngCount))
     setFrameSize(`${result.width} × ${result.height}`)
@@ -319,8 +243,6 @@ function App(): JSX.Element {
     setKeyFrameIndexes(keyIndexes)
     setRawFolder('')
     setSoftFolder('')
-    setActiveComparePreset(null)
-    setCompareItems([])
     setPreviewFrameName(files[0] ?? result.firstFileName ?? '')
     setActivePreviewTab('original')
     setPreviewImages({
@@ -381,13 +303,9 @@ function App(): JSX.Element {
     setKeyFrameIndexes([])
     setIsPlaying(false)
     previewCacheRef.current.clear()
-    setActiveComparePreset(null)
-    setCompareItems([])
 
     setPreviewFrameName('')
     setActivePreviewTab('original')
-    setConfigPath('')
-    setConfigMessage('尚未保存配置')
     setPreviewImages({
       original: '',
       raw: '',
@@ -511,118 +429,18 @@ function App(): JSX.Element {
     await applyFrameFolderScanResult(result.outputDir, scanResult)
   }
 
-  const buildProcessConfig = (): ProcessConfig => {
-    return {
-      version: 1,
-      updatedAt: new Date().toISOString(),
-      inputPath,
-      selectedFolder,
-      selectedVideo,
-      assetType,
-      frameCount,
-      frameSize,
-      preset,
-      alphaLow,
-      shrink,
-      videoFps,
-      videoDuration,
-      videoOutputPrefix,
-      playbackFps,
-      previewBackground,
-      lastFrameName: previewFrameName,
-      activePreviewTab
-    }
-  }
-
-  const applyProcessConfig = async (config: ProcessConfig): Promise<void> => {
-    const nextPreset = config.preset ?? preset
-    const nextAlphaLow = Number.isFinite(config.alphaLow) ? config.alphaLow : alphaLow
-    const nextShrink = Number.isFinite(config.shrink) ? config.shrink : shrink
-    const nextVideoFps = Number.isFinite(config.videoFps) ? config.videoFps : videoFps
-    const nextVideoDuration = Number.isFinite(config.videoDuration)
-      ? config.videoDuration
-      : videoDuration
-    const nextPlaybackFps = Number.isFinite(config.playbackFps) ? config.playbackFps : playbackFps
-    const nextPreviewBackground = config.previewBackground ?? previewBackground
-    const nextActivePreviewTab = config.activePreviewTab ?? activePreviewTab
-
-    setPreset(nextPreset)
-    setAlphaLow(nextAlphaLow)
-    setShrink(nextShrink)
-    setVideoFps(nextVideoFps)
-    setVideoDuration(nextVideoDuration)
-    setVideoOutputPrefix(config.videoOutputPrefix || videoOutputPrefix)
-    setPlaybackFps(nextPlaybackFps)
-    setPreviewBackground(nextPreviewBackground)
-    setActivePreviewTab(nextActivePreviewTab)
-
-    if (config.lastFrameName && frameFiles.length > 0) {
-      const frameIndex = frameFiles.findIndex((fileName) => fileName === config.lastFrameName)
-
-      if (frameIndex >= 0) {
-        await loadFrameByIndex(frameIndex)
-      }
-    }
-
-    appendLog(
-      `已应用配置：${nextPreset} / AlphaLow=${nextAlphaLow} / Shrink=${nextShrink} / 播放FPS=${nextPlaybackFps} / 背景=${nextPreviewBackground}`
-    )
-  }
-
-  const handleSaveProcessConfig = async (): Promise<void> => {
-    if (!selectedFolder) {
-      appendLog('请先选择序列帧文件夹，或先从视频切成序列帧。')
-      return
-    }
-
-    const result = await window.cutoutAPI.saveProcessConfig({
-      folderPath: selectedFolder,
-      config: buildProcessConfig()
-    })
-
-    if (!result.ok) {
-      appendLog(`配置保存失败：${result.message ?? '未知错误'}`)
-      setConfigMessage(result.message ?? '配置保存失败')
-      return
-    }
-
-    setConfigPath(result.configPath)
-    setConfigMessage('配置已保存')
-    appendLog(`配置已保存：${result.configPath}`)
-  }
-
-  const handleLoadProcessConfig = async (): Promise<void> => {
-    if (!selectedFolder) {
-      appendLog('请先选择序列帧文件夹，或先从视频切成序列帧。')
-      return
-    }
-
-    const result = await window.cutoutAPI.loadProcessConfig(selectedFolder)
-
-    if (!result.ok || !result.config) {
-      appendLog(`配置读取失败：${result.message ?? '未知错误'}`)
-      setConfigPath(result.configPath)
-      setConfigMessage(result.message ?? '配置读取失败')
-      return
-    }
-
-    setConfigPath(result.configPath)
-    setConfigMessage('配置已读取')
-    await applyProcessConfig(result.config)
-
-    appendLog(`配置已读取：${result.configPath}`)
-  }
-
   const handlePresetChange = (nextPreset: Preset): void => {
     setPreset(nextPreset)
 
-    if (nextPreset === 'Custom') {
-      return
+    if (nextPreset === 'H') {
+      setAlphaLow(44)
+      setShrink(0.72)
     }
 
-    const params = EDGE_PRESET_PARAMS[nextPreset]
-    setAlphaLow(params.alphaLow)
-    setShrink(params.shrink)
+    if (nextPreset === 'I') {
+      setAlphaLow(48)
+      setShrink(0.78)
+    }
   }
   const handleRunSingleCutout = async (): Promise<void> => {
     if (!selectedFolder) {
@@ -679,97 +497,6 @@ function App(): JSX.Element {
     appendLog('单帧测试完成，可查看 Raw / Soft 预览。')
     setIsTestingSingle(false)
   }
-  const handleRunCompareCutout = async (): Promise<void> => {
-    if (!selectedFolder) {
-      appendLog('请先选择序列帧文件夹，或先从视频切成序列帧。')
-      return
-    }
-
-    if (!previewFrameName) {
-      appendLog('没有可对比的当前帧。')
-      return
-    }
-
-    setIsPlaying(false)
-    setIsComparing(true)
-    previewCacheRef.current.clear()
-    setActiveComparePreset(null)
-
-    const initialItems = COMPARE_PRESETS.map(createCompareItem)
-    setCompareItems(initialItems)
-
-    appendLog('开始生成 C / F / I / Custom 参数对比。')
-    appendLog(`对比帧：${previewFrameName}`)
-
-    for (const item of initialItems) {
-      updateCompareItem(item.preset, {
-        status: 'running',
-        message: '处理中...'
-      })
-
-      appendLog(`开始对比 ${item.label}：AlphaLow=${item.alphaLow} / Shrink=${item.shrink}`)
-
-      const result = await window.cutoutAPI.runSingleCutout({
-        inputDir: selectedFolder,
-        frameName: previewFrameName,
-        preset: item.preset,
-        alphaLow: item.alphaLow,
-        shrink: item.shrink
-      })
-
-      if (!result.ok) {
-        updateCompareItem(item.preset, {
-          status: 'error',
-          message: result.message ?? '生成失败'
-        })
-        appendLog(`${item.label} 对比失败：${result.message ?? '未知错误'}`)
-        continue
-      }
-
-      const imageResult = await window.cutoutAPI.readImageAsDataUrl(result.outputFile)
-
-      if (!imageResult.ok) {
-        updateCompareItem(item.preset, {
-          status: 'error',
-          message: imageResult.message ?? '读取预览失败'
-        })
-        appendLog(`${item.label} 预览读取失败：${imageResult.message ?? result.outputFile}`)
-        continue
-      }
-
-      updateCompareItem(item.preset, {
-        status: 'done',
-        message: '完成',
-        rawFile: result.rawFile,
-        outputFile: result.outputFile,
-        dataUrl: imageResult.dataUrl
-      })
-
-      if (item.preset === 'I') {
-        setActiveComparePreset('I')
-      }
-
-      appendLog(`${item.label} 对比完成：${result.outputFile}`)
-    }
-
-    setIsComparing(false)
-    appendLog('C / F / I / Custom 参数对比完成。')
-  }
-
-  const handleApplyComparePreset = (item: CompareItem): void => {
-    if (item.status !== 'done') {
-      appendLog(`${item.label} 尚未生成完成，不能应用。`)
-      return
-    }
-
-    setPreset(item.preset)
-    setAlphaLow(item.alphaLow)
-    setShrink(item.shrink)
-    setActiveComparePreset(item.preset)
-
-    appendLog(`已应用对比参数：${item.label} / AlphaLow=${item.alphaLow} / Shrink=${item.shrink}`)
-  }
-
   const handleRunBatchCutout = async (): Promise<void> => {
     if (!selectedFolder) {
       appendLog('请先选择序列帧文件夹。')
@@ -844,13 +571,6 @@ function App(): JSX.Element {
 
   const previewTitle =
     activePreviewTab === 'original' ? '原图' : activePreviewTab === 'raw' ? 'Raw 抠图' : 'Soft 后处理'
-
-  const activeCompareItem = activeComparePreset
-    ? compareItems.find((item) => item.preset === activeComparePreset)
-    : null
-
-  const displayPreviewTitle = activeCompareItem ? `${activeCompareItem.label} 对比` : previewTitle
-  const displayPreviewImage = activeCompareItem?.dataUrl ?? previewImages[activePreviewTab]
 
   return (
     <main className="app-shell">
@@ -998,7 +718,7 @@ function App(): JSX.Element {
             </div>
 
             <div className="preset-row">
-              {(['C', 'F', 'I', 'Custom'] as Preset[]).map((item) => (
+              {(['H', 'I', 'Custom'] as Preset[]).map((item) => (
                 <button
                   key={item}
                   className={preset === item ? 'preset active' : 'preset'}
@@ -1038,39 +758,18 @@ function App(): JSX.Element {
               >
                 {isTestingSingle ? '测试中...' : '测试单帧'}
               </button>
-
-              <button
-                className="secondary-button"
-                onClick={handleRunCompareCutout}
-                disabled={isComparing || !selectedFolder || !previewFrameName}
-              >
-                {isComparing ? '对比中...' : '生成对比'}
-              </button>
-
               <button className="primary-button" onClick={handleRunBatchCutout} disabled={isProcessing}>
                 {isProcessing ? '处理中...' : '批量处理'}
               </button>
               <button className="secondary-button" onClick={handleOpenOutputFolder} disabled={!outputFolder}>
                 打开输出目录
               </button>
-              <button className="secondary-button" onClick={handleSaveProcessConfig} disabled={!selectedFolder}>
-                保存配置
-              </button>
-
-              <button className="secondary-button" onClick={handleLoadProcessConfig} disabled={!selectedFolder}>
-                读取配置
-              </button>
-            </div>
-
-            <div className="config-status">
-              <span>{configMessage}</span>
-              {configPath ? <strong>{configPath}</strong> : null}
             </div>
           </section>
 
           <section className="panel preview-panel">
             <div className="panel-header">
-              <h3>预览检查：{displayPreviewTitle}</h3>
+              <h3>预览检查：{previewTitle}</h3>
               <div className="segmented">
                 <button
                   className={previewBackground === 'checker' ? 'active' : ''}
@@ -1100,16 +799,16 @@ function App(): JSX.Element {
             </div>
 
             <div className={`preview-stage ${previewBackground}`}>
-              {displayPreviewImage ? (
+              {previewImages[activePreviewTab] ? (
                 <img
                   className="preview-image"
-                  src={displayPreviewImage}
-                  alt={`${displayPreviewTitle} preview`}
+                  src={previewImages[activePreviewTab]}
+                  alt={`${activePreviewTab} preview`}
                 />
               ) : (
                 <div className="preview-empty">
                   <strong>等待预览</strong>
-                  <p>当前标签：{displayPreviewTitle}</p>
+                  <p>当前标签：{previewTitle}</p>
                 </div>
               )}
             </div>
@@ -1173,60 +872,29 @@ function App(): JSX.Element {
 
               <div className="playback-status">
                 {frameFiles.length > 0
-                  ? `${isPlaying ? '播放中' : '已暂停'} · ${displayPreviewTitle} · ${currentFrameIndex + 1} / ${frameFiles.length} · 循环`
+                  ? `${isPlaying ? '播放中' : '已暂停'} · ${previewTitle} · ${currentFrameIndex + 1} / ${frameFiles.length} · 循环`
                   : '等待序列帧'}
               </div>
             </div>
             <div className="preview-tabs">
               <button
-                className={!activeComparePreset && activePreviewTab === 'original' ? 'active' : ''}
-                onClick={() => {
-                  setActiveComparePreset(null)
-                  setActivePreviewTab('original')
-                }}
+                className={activePreviewTab === 'original' ? 'active' : ''}
+                onClick={() => setActivePreviewTab('original')}
               >
                 原图
               </button>
-
               <button
-                className={!activeComparePreset && activePreviewTab === 'raw' ? 'active' : ''}
-                onClick={() => {
-                  setActiveComparePreset(null)
-                  setActivePreviewTab('raw')
-                }}
+                className={activePreviewTab === 'raw' ? 'active' : ''}
+                onClick={() => setActivePreviewTab('raw')}
               >
                 Raw
               </button>
-
               <button
-                className={!activeComparePreset && activePreviewTab === 'soft' ? 'active' : ''}
-                onClick={() => {
-                  setActiveComparePreset(null)
-                  setActivePreviewTab('soft')
-                }}
+                className={activePreviewTab === 'soft' ? 'active' : ''}
+                onClick={() => setActivePreviewTab('soft')}
               >
                 Soft
               </button>
-
-              {COMPARE_PRESETS.map((comparePreset) => {
-                const item = compareItems.find((candidate) => candidate.preset === comparePreset)
-                const isReady = item?.status === 'done' && Boolean(item.dataUrl)
-
-                return (
-                  <button
-                    key={comparePreset}
-                    className={activeComparePreset === comparePreset ? 'active compare-tab' : 'compare-tab'}
-                    disabled={!isReady}
-                    onClick={() => {
-                      if (item) {
-                        handleApplyComparePreset(item)
-                      }
-                    }}
-                  >
-                    {comparePreset}
-                  </button>
-                )
-              })}
             </div>
           </section>
 

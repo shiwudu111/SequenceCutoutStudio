@@ -817,27 +817,3 @@ button:disabled {
   background: #536dfe;
   border-color: #536dfe;
 }
-
-.config-status {
-  display: grid;
-  gap: 6px;
-  margin-top: 14px;
-  padding: 10px 12px;
-  border-radius: 13px;
-  background: #f8fafc;
-  border: 1px solid #dbe3ef;
-}
-
-.config-status span {
-  color: #64748b;
-  font-size: 12px;
-  font-weight: 700;
-}
-
-.config-status strong {
-  overflow: hidden;
-  color: #334158;
-  font-size: 12px;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
