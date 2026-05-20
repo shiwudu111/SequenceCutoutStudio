@@ -851,3 +851,139 @@ button:disabled {
   background: transparent;
   overflow: hidden;
 }
+
+
+.self-check-card {
+  display: grid;
+  gap: 12px;
+  margin-top: 16px;
+  padding: 14px;
+  border-radius: 18px;
+  background: #f7f9fc;
+  border: 1px solid #d8e0ec;
+}
+
+.self-check-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.self-check-title-block {
+  display: grid;
+  gap: 4px;
+}
+
+.self-check-title-block span {
+  color: #1f2a44;
+  font-size: 14px;
+  font-weight: 800;
+}
+
+.self-check-title-block p {
+  margin: 0;
+  color: #6b7280;
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+.self-check-header strong {
+  flex-shrink: 0;
+  padding: 6px 10px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.self-check-header strong.ok {
+  color: #0f7b4d;
+  background: #e8f8ef;
+  border: 1px solid #bce9cf;
+}
+
+.self-check-header strong.warn {
+  color: #9a6700;
+  background: #fff4dc;
+  border: 1px solid #f2d48a;
+}
+
+.self-check-button {
+  border: 0;
+  border-radius: 12px;
+  padding: 10px 14px;
+  color: white;
+  background: #5b6cff;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.self-check-button:hover {
+  background: #4a5af0;
+}
+
+.self-check-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+.self-check-list {
+  display: grid;
+  gap: 8px;
+  max-height: 260px;
+  overflow: auto;
+  padding-right: 4px;
+}
+
+.self-check-item {
+  display: grid;
+  grid-template-columns: 24px 1fr;
+  gap: 10px;
+  padding: 10px;
+  border-radius: 12px;
+  background: white;
+  border: 1px solid #e2e8f0;
+}
+
+.self-check-item > span {
+  display: grid;
+  place-items: center;
+  width: 20px;
+  height: 20px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 900;
+}
+
+.self-check-item.ok > span {
+  color: white;
+  background: #22c55e;
+}
+
+.self-check-item.missing > span,
+.self-check-item.error > span {
+  color: white;
+  background: #f59e0b;
+}
+
+.self-check-item strong {
+  display: block;
+  color: #1f2a44;
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.self-check-item p {
+  margin: 3px 0;
+  color: #4b5563;
+  font-size: 12px;
+}
+
+.self-check-item small {
+  display: block;
+  color: #8a94a6;
+  font-size: 11px;
+  line-height: 1.4;
+  word-break: break-all;
+}

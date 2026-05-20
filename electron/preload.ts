@@ -39,6 +39,9 @@ contextBridge.exposeInMainWorld('cutoutAPI', {
   readImageAsDataUrl: (filePath: string) =>
     ipcRenderer.invoke('preview:read-image-data-url', filePath),
   
+  runSelfCheck: () =>
+  ipcRenderer.invoke('system:run-self-check'),
+  
   selectBackgroundImageFile: () =>
   ipcRenderer.invoke('dialog:select-background-image-file'),
 

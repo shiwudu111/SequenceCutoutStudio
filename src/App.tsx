@@ -85,6 +85,8 @@ function App(): JSX.Element {
   const [compareItems, setCompareItems] = useState<CompareItem[]>([])
   const [configPath, setConfigPath] = useState('')
   const [configMessage, setConfigMessage] = useState('尚未保存配置')
+  const [selfCheckResult, setSelfCheckResult] = useState<SelfCheckResult | null>(null)
+  const [isSelfChecking, setIsSelfChecking] = useState(false)
   const [activeComparePreset, setActiveComparePreset] = useState<Preset | null>(null)
   const [isDraggingInput, setIsDraggingInput] = useState(false)
   const [isPlaying, setIsPlaying] = useState(false)
@@ -92,12 +94,13 @@ function App(): JSX.Element {
   const previewCacheRef = useRef<Map<string, string>>(new Map())
   const [logs, setLogs] = useState<string[]>([
     'Sequence Cutout Studio 已启动。',
-    '当前阶段：Phase 2B - 动画播放预览 + FPS 控制。'
+    '当前阶段：Phase 3B - 启动自检。'
   ])
 
   const appendLog = (line: string): void => {
     setLogs((prev) => [...prev, line])
   }
+
 
   const joinWindowsPath = (folderPath: string, fileName: string): string => {
     return `${folderPath.replace(/[\\/]+$/, '')}\\${fileName}`
@@ -343,6 +346,31 @@ function App(): JSX.Element {
       await loadFrameByIndex(0, files, folderPath, '', '')
     }
   }
+
+  const handleRunSelfCheck = async (): Promise<void> => {
+    setIsSelfChecking(true)
+
+    const result = await window.cutoutAPI.runSelfCheck()
+
+    setSelfCheckResult(result)
+    setIsSelfChecking(false)
+
+    if (result.ok) {
+      appendLog('启动自检通过。')
+      return
+    }
+
+    const failedItems = result.items.filter((item: SelfCheckItem) => item.status !== 'ok')
+    appendLog(`启动自检发现 ${failedItems.length} 个问题。`)
+
+    failedItems.forEach((item: SelfCheckItem) => {
+      appendLog(`自检失败：${item.label} → ${item.message} → ${item.path}`)
+    })
+  }
+
+  useEffect(() => {
+    void handleRunSelfCheck()
+  }, [])
 
   const handleSelectFrameFolder = async (): Promise<void> => {
     appendLog('正在选择序列帧文件夹...')
@@ -895,6 +923,12 @@ function App(): JSX.Element {
   const displayPreviewTitle = activeCompareItem ? `${activeCompareItem.label} 对比` : previewTitle
   const displayPreviewImage = activeCompareItem?.dataUrl ?? previewImages[activePreviewTab]
 
+  const selfCheckPassedCount =
+    selfCheckResult?.items.filter((item: SelfCheckItem) => item.status === 'ok').length ?? 0
+
+  const selfCheckTotalCount = selfCheckResult?.items.length ?? 0
+  const selfCheckFailedCount = selfCheckTotalCount - selfCheckPassedCount
+
   return (
     <main className="app-shell">
       <aside className="sidebar">
@@ -916,8 +950,46 @@ function App(): JSX.Element {
 
         <div className="phase-card">
           <span>当前阶段</span>
-          <strong>Phase 2B</strong>
-          <p>实现动画播放预览、FPS 控制和循环播放。</p>
+          <strong>Phase 3B</strong>
+          <p>检查工具、模型、脚本和目录权限。</p>
+        </div>
+
+        <div className="self-check-card">
+          <div className="self-check-header">
+            <div className="self-check-title-block">
+              <span>环境自检</span>
+              <p>检查 FFmpeg、Python、rembg、模型、脚本和目录权限</p>
+            </div>
+
+            <strong className={selfCheckResult?.ok ? 'ok' : 'warn'}>
+              {isSelfChecking
+                ? '检查中...'
+                : selfCheckResult
+                  ? selfCheckResult.ok
+                    ? `${selfCheckPassedCount} / ${selfCheckTotalCount} 项通过`
+                    : `${selfCheckPassedCount} / ${selfCheckTotalCount} 项通过，${selfCheckFailedCount} 项异常`
+                  : '未检查'}
+            </strong>
+          </div>
+
+          <button className="self-check-button" onClick={handleRunSelfCheck} disabled={isSelfChecking}>
+            {isSelfChecking ? '检查中...' : '重新自检'}
+          </button>
+
+          {selfCheckResult ? (
+            <div className="self-check-list">
+              {selfCheckResult.items.map((item: SelfCheckItem) => (
+                <div key={item.key} className={`self-check-item ${item.status}`}>
+                  <span>{item.status === 'ok' ? '✓' : '×'}</span>
+                  <div>
+                    <strong>{item.label}</strong>
+                    <p>{item.message}</p>
+                    <small>{item.path}</small>
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : null}
         </div>
       </aside>
 

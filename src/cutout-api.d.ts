@@ -139,6 +139,24 @@ declare global {
         configPath: string
         config?: ProcessConfig
     }
+
+    type SelfCheckStatus = 'ok' | 'missing' | 'error'
+
+type SelfCheckItem = {
+    key: string
+    label: string
+    path: string
+    status: SelfCheckStatus
+    message: string
+}
+
+type SelfCheckResult = {
+    ok: boolean
+    checkedAt: string
+    rootDir: string
+    items: SelfCheckItem[]
+}
+
     interface Window {
         cutoutAPI: {
             selectFrameFolder: () => Promise<string | null>
@@ -150,6 +168,7 @@ declare global {
             runSingleCutout: (args: RunSingleCutoutArgs) => Promise<SingleCutoutResult>
             runBatchCutout: (args: RunBatchCutoutArgs) => Promise<BatchCutoutResult>
             readImageAsDataUrl: (filePath: string) => Promise<ImageDataUrlResult>
+            runSelfCheck: () => Promise<SelfCheckResult>
             selectBackgroundImageFile: () => Promise<string | null>
             selectBackgroundImage: () => Promise<SelectBackgroundImageResult>
             saveProcessConfig: (args: SaveProcessConfigArgs) => Promise<ProcessConfigResult>

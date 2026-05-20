@@ -107,6 +107,23 @@ type RunCommandResult = {
 
 type CommandEnv = Record<string, string | undefined>
 
+type SelfCheckStatus = 'ok' | 'missing' | 'error'
+
+type SelfCheckItem = {
+  key: string
+  label: string
+  path: string
+  status: SelfCheckStatus
+  message: string
+}
+
+type SelfCheckResult = {
+  ok: boolean
+  checkedAt: string
+  rootDir: string
+  items: SelfCheckItem[]
+}
+
 function createWindow(): void {
   win = new BrowserWindow({
     width: 1280,
@@ -461,7 +478,79 @@ async function loadProcessConfig(folderPath: string) {
     }
   }
 }
+async function checkFileExists(key: string, label: string, filePath: string): Promise<SelfCheckItem> {
+  try {
+    await fs.access(filePath)
 
+    return {
+      key,
+      label,
+      path: filePath,
+      status: 'ok',
+      message: '已找到'
+    }
+  } catch {
+    return {
+      key,
+      label,
+      path: filePath,
+      status: 'missing',
+      message: '未找到'
+    }
+  }
+}
+
+async function checkWritableDir(key: string, label: string, dirPath: string): Promise<SelfCheckItem> {
+  try {
+    await fs.mkdir(dirPath, { recursive: true })
+
+    const testFile = path.join(
+      dirPath,
+      `.scs-write-test-${process.pid}-${Date.now()}-${Math.random().toString(36).slice(2)}.tmp`
+    )
+    await fs.writeFile(testFile, 'ok', 'utf8')
+    await fs.unlink(testFile)
+
+    return {
+      key,
+      label,
+      path: dirPath,
+      status: 'ok',
+      message: '可写'
+    }
+  } catch (error) {
+    return {
+      key,
+      label,
+      path: dirPath,
+      status: 'error',
+      message: error instanceof Error ? error.message : String(error)
+    }
+  }
+}
+
+async function runSelfCheck(): Promise<SelfCheckResult> {
+  const runtimePaths = getRuntimePaths()
+  const modelFile = path.join(runtimePaths.modelDir, 'isnet-general-use.onnx')
+
+  const items: SelfCheckItem[] = [
+    await checkFileExists('ffmpeg', 'FFmpeg', runtimePaths.ffmpegExe),
+    await checkFileExists('python', 'Python', runtimePaths.pythonExe),
+    await checkFileExists('rembg', 'rembg', runtimePaths.rembgExe),
+    await checkFileExists('model', 'isnet-general-use 模型', modelFile),
+    await checkFileExists('postprocess', 'postprocess 脚本', runtimePaths.postprocessScript),
+    await checkFileExists('preset', 'presets/default.json', runtimePaths.presetFile),
+    await checkWritableDir('logs', 'logs 目录', runtimePaths.logsDir),
+    await checkWritableDir('projects', 'projects 目录', runtimePaths.projectsDir)
+  ]
+
+  return {
+    ok: items.every((item) => item.status === 'ok'),
+    checkedAt: new Date().toISOString(),
+    rootDir: runtimePaths.rootDir,
+    items
+  }
+}
 function runCommand(command: string, args: string[], options?: { env?: CommandEnv }): Promise<RunCommandResult> {
   return new Promise((resolve) => {
     const child = spawn(command, args, {
@@ -1018,6 +1107,27 @@ ipcMain.handle('config:load-process-config', async (_event, folderPath: string) 
       ok: false,
       message: error instanceof Error ? error.message : String(error),
       configPath: ''
+    }
+  }
+})
+
+ipcMain.handle('system:run-self-check', async () => {
+  try {
+    return await runSelfCheck()
+  } catch (error) {
+    return {
+      ok: false,
+      checkedAt: new Date().toISOString(),
+      rootDir: getPortableRootDir(),
+      items: [
+        {
+          key: 'self-check',
+          label: '启动自检',
+          path: '',
+          status: 'error',
+          message: error instanceof Error ? error.message : String(error)
+        }
+      ]
     }
   }
 })
