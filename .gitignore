@@ -29,3 +29,4 @@ out
 release
 *.bak_preview
 *.bak_video
+portable-root/

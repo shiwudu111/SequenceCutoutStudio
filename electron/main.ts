@@ -1161,5 +1161,5 @@ app.on('activate', () => {
     createWindow()
   }
 })
-
+app.disableHardwareAcceleration()
 app.whenReady().then(createWindow)
