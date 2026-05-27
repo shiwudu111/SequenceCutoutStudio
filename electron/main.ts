@@ -27,6 +27,9 @@ const DEV_PYTHON_EXE =
   process.env.SCS_DEV_PYTHON_EXE ?? 'D:\\Program Files\\rembg\\.venv\\Scripts\\python.exe'
 const DEV_POSTPROCESS_SCRIPT =
   process.env.SCS_DEV_POSTPROCESS_SCRIPT ?? 'E:\\cuts\\postprocess\\batch_clean_cutout_soft.py'
+const DEV_REMBG_RUNNER_SCRIPT =
+  process.env.SCS_DEV_REMBG_RUNNER_SCRIPT ?? path.join(DEV_CORE_DIR, 'tools', 'rembg_runner.py')
+
 const DEV_MODEL_DIR = process.env.SCS_DEV_MODEL_DIR ?? 'D:\\Program Files\\rembg\\models'
 
 const PROCESS_CONFIG_FILE_NAME = 'process-config.json'
@@ -38,6 +41,7 @@ type RuntimePaths = {
   ffmpegExe: string
   rembgExe: string
   pythonExe: string
+  rembgRunnerScript: string
   postprocessScript: string
   modelDir: string
   presetsDir: string
@@ -49,7 +53,7 @@ type RuntimePaths = {
 
 function getPortableRootDir(): string {
   if (app.isPackaged) {
-    return path.dirname(process.execPath)
+    return path.join(process.resourcesPath, 'portable-root')
   }
 
   return process.env.SCS_PORTABLE_ROOT ?? DEV_CORE_DIR
@@ -65,6 +69,7 @@ function getRuntimePaths(): RuntimePaths {
       ffmpegExe: DEV_FFMPEG_EXE,
       rembgExe: DEV_REMBG_EXE,
       pythonExe: DEV_PYTHON_EXE,
+      rembgRunnerScript: DEV_REMBG_RUNNER_SCRIPT,
       postprocessScript: DEV_POSTPROCESS_SCRIPT,
       modelDir: DEV_MODEL_DIR,
       presetsDir: path.join(DEV_CORE_DIR, 'presets'),
@@ -82,7 +87,8 @@ function getRuntimePaths(): RuntimePaths {
     toolsDir,
     ffmpegExe: path.join(toolsDir, 'ffmpeg', 'ffmpeg.exe'),
     rembgExe: path.join(toolsDir, 'rembg', '.venv', 'Scripts', 'rembg.exe'),
-    pythonExe: path.join(toolsDir, 'rembg', '.venv', 'Scripts', 'python.exe'),
+    pythonExe: path.join(toolsDir, 'python', 'python.exe'),
+    rembgRunnerScript: path.join(toolsDir, 'rembg_runner.py'),
     postprocessScript: path.join(toolsDir, 'postprocess', 'batch_clean_cutout_soft.py'),
     modelDir: path.join(toolsDir, 'models'),
     presetsDir: path.join(rootDir, 'presets'),
@@ -123,6 +129,20 @@ type SelfCheckResult = {
   rootDir: string
   items: SelfCheckItem[]
 }
+async function notifyLauncherReady(): Promise<void> {
+  const readyFile = process.env.SCS_LAUNCHER_READY_FILE
+
+  if (!readyFile) {
+    return
+  }
+
+  try {
+    await fs.mkdir(path.dirname(readyFile), { recursive: true })
+    await fs.writeFile(readyFile, new Date().toISOString(), 'utf8')
+  } catch {
+    // launcher ready signal is best-effort only
+  }
+}
 
 function createWindow(): void {
   win = new BrowserWindow({
@@ -130,12 +150,35 @@ function createWindow(): void {
     height: 820,
     minWidth: 1100,
     minHeight: 720,
+    show: false,
     title: 'Sequence Cutout Studio',
+    backgroundColor: '#f7f9fc',
     webPreferences: {
       preload: path.join(__dirname, 'preload.mjs'),
       contextIsolation: true,
       nodeIntegration: false
     }
+  })
+
+  win.once('ready-to-show', () => {
+    void notifyLauncherReady()
+
+    if (win && !win.isDestroyed()) {
+      win.show()
+      win.focus()
+    }
+  })
+
+  win.webContents.once('did-fail-load', () => {
+    void notifyLauncherReady()
+
+    if (win && !win.isDestroyed()) {
+      win.show()
+    }
+  })
+
+  win.on('closed', () => {
+    win = null
   })
 
   if (VITE_DEV_SERVER_URL) {
@@ -536,7 +579,7 @@ async function runSelfCheck(): Promise<SelfCheckResult> {
   const items: SelfCheckItem[] = [
     await checkFileExists('ffmpeg', 'FFmpeg', runtimePaths.ffmpegExe),
     await checkFileExists('python', 'Python', runtimePaths.pythonExe),
-    await checkFileExists('rembg', 'rembg', runtimePaths.rembgExe),
+    await checkFileExists('rembg-runner', 'rembg_runner.py', runtimePaths.rembgRunnerScript),
     await checkFileExists('model', 'isnet-general-use 模型', modelFile),
     await checkFileExists('postprocess', 'postprocess 脚本', runtimePaths.postprocessScript),
     await checkFileExists('preset', 'presets/default.json', runtimePaths.presetFile),
@@ -551,6 +594,16 @@ async function runSelfCheck(): Promise<SelfCheckResult> {
     items
   }
 }
+
+function createPythonToolEnv(runtimePaths: RuntimePaths): CommandEnv {
+  return {
+    U2NET_HOME: runtimePaths.modelDir,
+    PYTHONUTF8: '1',
+    PYTHONNOUSERSITE: '1',
+     PYTHONPATH: path.join(runtimePaths.toolsDir, 'Lib', 'site-packages')
+  }
+}
+
 function runCommand(command: string, args: string[], options?: { env?: CommandEnv }): Promise<RunCommandResult> {
   return new Promise((resolve) => {
     const child = spawn(command, args, {
@@ -697,12 +750,17 @@ async function runSingleCutout(args: {
   }
 
   const rembgResult = await runCommand(
-    runtimePaths.rembgExe,
-    ['i', '-m', 'isnet-general-use', originalFile, rawFile],
+    runtimePaths.pythonExe,
+    [
+      runtimePaths.rembgRunnerScript,
+      'i',
+      '--model',
+      'isnet-general-use',
+      originalFile,
+      rawFile
+    ],
     {
-      env: {
-        U2NET_HOME: runtimePaths.modelDir
-      }
+      env: createPythonToolEnv(runtimePaths)
     }
   )
 
@@ -725,19 +783,25 @@ async function runSingleCutout(args: {
     }
   }
 
-  const postprocessResult = await runCommand(runtimePaths.pythonExe, [
-    runtimePaths.postprocessScript,
-    '--original',
-    originalFile,
-    '--raw',
-    rawFile,
-    '--output',
-    outputFile,
-    '--alpha-low',
-    String(args.alphaLow),
-    '--shrink',
-    String(args.shrink)
-  ])
+  const postprocessResult = await runCommand(
+    runtimePaths.pythonExe,
+    [
+      runtimePaths.postprocessScript,
+      '--original',
+      originalFile,
+      '--raw',
+      rawFile,
+      '--output',
+      outputFile,
+      '--alpha-low',
+      String(args.alphaLow),
+      '--shrink',
+      String(args.shrink)
+    ],
+    {
+      env: createPythonToolEnv(runtimePaths)
+    }
+  )
 
   if (postprocessResult.code !== 0) {
     return {
@@ -849,12 +913,17 @@ async function runBatchCutout(args: {
     }
   } else {
     rembgResult = await runCommand(
-      runtimePaths.rembgExe,
-      ['p', '-m', 'isnet-general-use', inputDir, rawDir],
+      runtimePaths.pythonExe,
+      [
+        runtimePaths.rembgRunnerScript,
+        'p',
+        '--model',
+        'isnet-general-use',
+        inputDir,
+        rawDir
+      ],
       {
-        env: {
-          U2NET_HOME: runtimePaths.modelDir
-        }
+        env: createPythonToolEnv(runtimePaths)
       }
     )
 
@@ -887,21 +956,27 @@ async function runBatchCutout(args: {
     })
   }
 
-  const postprocessResult = await runCommand(runtimePaths.pythonExe, [
-    runtimePaths.postprocessScript,
-    '--original',
-    inputDir,
-    '--raw',
-    rawDir,
-    '--output',
-    outputDir,
-    '--alpha-low',
-    String(args.alphaLow),
-    '--shrink',
-    String(args.shrink),
-    '--log',
-    logPath
-  ])
+  const postprocessResult = await runCommand(
+    runtimePaths.pythonExe,
+    [
+      runtimePaths.postprocessScript,
+      '--original',
+      inputDir,
+      '--raw',
+      rawDir,
+      '--output',
+      outputDir,
+      '--alpha-low',
+      String(args.alphaLow),
+      '--shrink',
+      String(args.shrink),
+      '--log',
+      logPath
+    ],
+    {
+      env: createPythonToolEnv(runtimePaths)
+    }
+  )
 
   const rawCount = await countPngFiles(rawDir)
   const outputCount = await countPngFiles(outputDir)
@@ -1161,5 +1236,7 @@ app.on('activate', () => {
     createWindow()
   }
 })
+
 app.disableHardwareAcceleration()
+
 app.whenReady().then(createWindow)
