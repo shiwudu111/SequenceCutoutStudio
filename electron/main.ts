@@ -21,16 +21,15 @@ let win: BrowserWindow | null
 const DEV_CORE_DIR = process.env.SCS_DEV_CORE_DIR ?? 'E:\\cuts'
 const DEV_FFMPEG_EXE =
   process.env.SCS_DEV_FFMPEG_EXE ?? 'D:\\Program Files\\FFmpeg\\bin\\ffmpeg.exe'
-const DEV_REMBG_EXE =
-  process.env.SCS_DEV_REMBG_EXE ?? 'D:\\Program Files\\rembg\\.venv\\Scripts\\rembg.exe'
 const DEV_PYTHON_EXE =
-  process.env.SCS_DEV_PYTHON_EXE ?? 'D:\\Program Files\\rembg\\.venv\\Scripts\\python.exe'
+  process.env.SCS_DEV_PYTHON_EXE ?? path.join(DEV_CORE_DIR, 'tools', 'python', 'python.exe')
 const DEV_POSTPROCESS_SCRIPT =
-  process.env.SCS_DEV_POSTPROCESS_SCRIPT ?? 'E:\\cuts\\postprocess\\batch_clean_cutout_soft.py'
+  process.env.SCS_DEV_POSTPROCESS_SCRIPT ??
+  path.join(DEV_CORE_DIR, 'tools', 'postprocess', 'batch_clean_cutout_soft.py')
 const DEV_REMBG_RUNNER_SCRIPT =
   process.env.SCS_DEV_REMBG_RUNNER_SCRIPT ?? path.join(DEV_CORE_DIR, 'tools', 'rembg_runner.py')
 
-const DEV_MODEL_DIR = process.env.SCS_DEV_MODEL_DIR ?? 'D:\\Program Files\\rembg\\models'
+const DEV_MODEL_DIR = process.env.SCS_DEV_MODEL_DIR ?? path.join(DEV_CORE_DIR, 'tools', 'models')
 
 const PROCESS_CONFIG_FILE_NAME = 'process-config.json'
 const RAW_MANIFEST_FILE_NAME = '.raw-manifest.json'
@@ -39,7 +38,6 @@ type RuntimePaths = {
   rootDir: string
   toolsDir: string
   ffmpegExe: string
-  rembgExe: string
   pythonExe: string
   rembgRunnerScript: string
   postprocessScript: string
@@ -67,7 +65,6 @@ function getRuntimePaths(): RuntimePaths {
       rootDir: DEV_CORE_DIR,
       toolsDir: path.join(DEV_CORE_DIR, 'tools'),
       ffmpegExe: DEV_FFMPEG_EXE,
-      rembgExe: DEV_REMBG_EXE,
       pythonExe: DEV_PYTHON_EXE,
       rembgRunnerScript: DEV_REMBG_RUNNER_SCRIPT,
       postprocessScript: DEV_POSTPROCESS_SCRIPT,
@@ -86,7 +83,6 @@ function getRuntimePaths(): RuntimePaths {
     rootDir,
     toolsDir,
     ffmpegExe: path.join(toolsDir, 'ffmpeg', 'ffmpeg.exe'),
-    rembgExe: path.join(toolsDir, 'rembg', '.venv', 'Scripts', 'rembg.exe'),
     pythonExe: path.join(toolsDir, 'python', 'python.exe'),
     rembgRunnerScript: path.join(toolsDir, 'rembg_runner.py'),
     postprocessScript: path.join(toolsDir, 'postprocess', 'batch_clean_cutout_soft.py'),
@@ -572,6 +568,38 @@ async function checkWritableDir(key: string, label: string, dirPath: string): Pr
   }
 }
 
+async function checkCommandRuns(
+  key: string,
+  label: string,
+  command: string,
+  args: string[],
+  runtimePaths: RuntimePaths
+): Promise<SelfCheckItem> {
+  const result = await runCommand(command, args, {
+    env: createPythonToolEnv(runtimePaths)
+  })
+
+  const output = [result.stdout.trim(), result.stderr.trim()].filter(Boolean).join('\n')
+
+  if (result.code === 0) {
+    return {
+      key,
+      label,
+      path: command,
+      status: 'ok',
+      message: output || 'ok'
+    }
+  }
+
+  return {
+    key,
+    label,
+    path: command,
+    status: 'error',
+    message: [`exit code: ${result.code ?? 'unknown'}`, output].filter(Boolean).join('\n')
+  }
+}
+
 async function runSelfCheck(): Promise<SelfCheckResult> {
   const runtimePaths = getRuntimePaths()
   const modelFile = path.join(runtimePaths.modelDir, 'isnet-general-use.onnx')
@@ -586,6 +614,31 @@ async function runSelfCheck(): Promise<SelfCheckResult> {
     await checkWritableDir('logs', 'logs 目录', runtimePaths.logsDir),
     await checkWritableDir('projects', 'projects 目录', runtimePaths.projectsDir)
   ]
+
+  items.push(
+    await checkCommandRuns('python-version', 'Python run', runtimePaths.pythonExe, ['--version'], runtimePaths),
+    await checkCommandRuns(
+      'python-rembg-import',
+      'rembg import',
+      runtimePaths.pythonExe,
+      ['-c', "import rembg; print('rembg ok')"],
+      runtimePaths
+    ),
+    await checkCommandRuns(
+      'python-onnxruntime-import',
+      'onnxruntime import',
+      runtimePaths.pythonExe,
+      ['-c', "import onnxruntime; print('onnxruntime ok')"],
+      runtimePaths
+    ),
+    await checkCommandRuns(
+      'python-postprocess-deps-import',
+      'postprocess deps import',
+      runtimePaths.pythonExe,
+      ['-c', "import PIL, numpy; print('postprocess deps ok')"],
+      runtimePaths
+    )
+  )
 
   return {
     ok: items.every((item) => item.status === 'ok'),
