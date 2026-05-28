@@ -1,0 +1,243 @@
+param(
+    [string]$Version = "0.0.0"
+)
+
+$ErrorActionPreference = "Stop"
+$script:BuildStopwatch = [System.Diagnostics.Stopwatch]::StartNew()
+$script:StepStopwatch = [System.Diagnostics.Stopwatch]::StartNew()
+
+function Write-Step {
+    param([string]$Message)
+    if ($script:StepStopwatch.Elapsed.TotalSeconds -gt 0.1) {
+        Write-Host "Step elapsed: $([Math]::Round($script:StepStopwatch.Elapsed.TotalSeconds, 1))s"
+    }
+    $script:StepStopwatch.Restart()
+    Write-Host ""
+    Write-Host "==> $Message"
+}
+
+function Get-RepoRoot {
+    $scriptDir = Split-Path -Parent $PSCommandPath
+    return (Resolve-Path (Join-Path $scriptDir "..")).Path
+}
+
+function Assert-Exists {
+    param(
+        [string]$Path,
+        [string]$Message
+    )
+
+    if (-not (Test-Path -LiteralPath $Path)) {
+        throw "$Message Missing path: $Path"
+    }
+}
+
+function Assert-NotExists {
+    param(
+        [string]$Path,
+        [string]$Message
+    )
+
+    if (Test-Path -LiteralPath $Path) {
+        throw "$Message Unexpected path: $Path"
+    }
+}
+
+function Invoke-CommandChecked {
+    param(
+        [string]$FilePath,
+        [string[]]$Arguments,
+        [string]$WorkingDirectory
+    )
+
+    Write-Host "> $FilePath $($Arguments -join ' ')"
+    & $FilePath @Arguments
+    if ($LASTEXITCODE -ne 0) {
+        throw "Command failed with exit code $LASTEXITCODE`: $FilePath $($Arguments -join ' ')"
+    }
+}
+
+function Find-Csc {
+    $candidates = @()
+
+    try {
+        $runtimeDir = [System.Runtime.InteropServices.RuntimeEnvironment]::GetRuntimeDirectory()
+        if ($runtimeDir) {
+            $candidates += (Join-Path $runtimeDir "csc.exe")
+        }
+    }
+    catch {
+    }
+
+    $candidates += @(
+        (Join-Path $env:WINDIR "Microsoft.NET\Framework64\v4.0.30319\csc.exe"),
+        (Join-Path $env:WINDIR "Microsoft.NET\Framework\v4.0.30319\csc.exe")
+    )
+
+    foreach ($candidate in $candidates) {
+        if (Test-Path -LiteralPath $candidate) {
+            return (Resolve-Path -LiteralPath $candidate).Path
+        }
+    }
+
+    throw "Could not find .NET Framework csc.exe."
+}
+
+function Remove-IfExists {
+    param([string]$Path)
+
+    if (Test-Path -LiteralPath $Path) {
+        Write-Host "Removing $Path"
+        Remove-Item -LiteralPath $Path -Recurse -Force
+    }
+}
+
+function Remove-SampleOutputs {
+    param([string]$Root)
+
+    $sampleRoots = @(
+        (Join-Path $Root "samples"),
+        (Join-Path $Root "public\samples")
+    )
+
+    $patterns = @("*_12fps_*", "*_general_raw", "*_soft_*")
+
+    foreach ($sampleRoot in $sampleRoots) {
+        if (-not (Test-Path -LiteralPath $sampleRoot)) {
+            continue
+        }
+
+        foreach ($pattern in $patterns) {
+            Get-ChildItem -LiteralPath $sampleRoot -Directory -Recurse -Filter $pattern -ErrorAction SilentlyContinue |
+                ForEach-Object {
+                    Write-Host "Removing sample output $($_.FullName)"
+                    Remove-Item -LiteralPath $_.FullName -Recurse -Force
+                }
+        }
+    }
+}
+
+function Compress-InternalPackage {
+    param(
+        [string]$SourceDir,
+        [string]$ZipPath
+    )
+
+    if (Test-Path -LiteralPath $ZipPath) {
+        Remove-Item -LiteralPath $ZipPath -Force
+    }
+
+    Add-Type -AssemblyName System.IO.Compression.FileSystem
+    [System.IO.Compression.ZipFile]::CreateFromDirectory(
+        $SourceDir,
+        $ZipPath,
+        [System.IO.Compression.CompressionLevel]::Optimal,
+        $true
+    )
+}
+
+$root = Get-RepoRoot
+Set-Location -LiteralPath $root
+
+$releaseDir = Join-Path $root "release"
+$winUnpackedDir = Join-Path $releaseDir "win-unpacked"
+$internalDir = Join-Path $releaseDir "SequenceCutoutStudio-Internal"
+$internalAppDir = Join-Path $internalDir "app"
+$launcherSource = Join-Path $root "launcher\SequenceCutoutStudioLauncher.cs"
+$iconPath = Join-Path $root "build\icon.ico"
+$splashPath = Join-Path $root "build\splash.bmp"
+$launcherOutput = Join-Path $internalDir "SequenceCutoutStudio-Internal.exe"
+$zipPath = Join-Path $releaseDir "SequenceCutoutStudio-Internal-v$Version-win-x64.zip"
+$logPath = Join-Path $releaseDir "build-internal.log"
+
+New-Item -ItemType Directory -Path $releaseDir -Force | Out-Null
+Start-Transcript -Path $logPath -Force | Out-Null
+
+try {
+
+Write-Step "Building renderer and Electron main process"
+Invoke-CommandChecked -FilePath "npm.cmd" -Arguments @("run", "build") -WorkingDirectory $root
+
+Write-Step "Running electron-builder dir target"
+Invoke-CommandChecked -FilePath "npx.cmd" -Arguments @("electron-builder", "--win", "dir") -WorkingDirectory $root
+
+Write-Step "Cleaning legacy rembg runtime from win-unpacked"
+$legacyVenv = Join-Path $winUnpackedDir "resources\portable-root\tools\rembg\.venv"
+$legacyRembgDir = Join-Path $winUnpackedDir "resources\portable-root\tools\rembg"
+Remove-IfExists -Path $legacyVenv
+Remove-IfExists -Path $legacyRembgDir
+
+Write-Step "Cleaning sample output directories"
+Remove-SampleOutputs -Root $root
+
+Write-Step "Assembling internal green package"
+Remove-IfExists -Path $internalDir
+New-Item -ItemType Directory -Path $internalAppDir -Force | Out-Null
+Assert-Exists -Path $winUnpackedDir -Message "electron-builder output was not found."
+Copy-Item -Path (Join-Path $winUnpackedDir "*") -Destination $internalAppDir -Recurse -Force
+
+Write-Step "Compiling launcher"
+Assert-Exists -Path $launcherSource -Message "Launcher source was not found."
+Assert-Exists -Path $iconPath -Message "Launcher icon was not found."
+Assert-Exists -Path $splashPath -Message "Launcher splash image was not found."
+
+$csc = Find-Csc
+$cscArgs = @(
+    "/nologo",
+    "/target:winexe",
+    "/platform:x86",
+    "/out:$launcherOutput",
+    "/win32icon:$iconPath",
+    "/resource:$iconPath,LauncherIcon",
+    "/resource:$splashPath,SplashBmp",
+    "/reference:System.dll",
+    "/reference:System.Drawing.dll",
+    "/reference:System.Windows.Forms.dll",
+    $launcherSource
+)
+Invoke-CommandChecked -FilePath $csc -Arguments $cscArgs -WorkingDirectory $root
+
+Write-Step "Validating portable runtime layout"
+$finalRoot = Join-Path $internalAppDir "resources\portable-root"
+$pythonExe = Join-Path $finalRoot "tools\python\python.exe"
+$requiredPaths = @(
+    $pythonExe,
+    (Join-Path $finalRoot "tools\rembg_runner.py"),
+    (Join-Path $finalRoot "tools\Lib\site-packages\rembg"),
+    (Join-Path $finalRoot "tools\Lib\site-packages\onnxruntime"),
+    (Join-Path $finalRoot "tools\Lib\site-packages\PIL"),
+    (Join-Path $finalRoot "tools\Lib\site-packages\numpy")
+)
+
+foreach ($path in $requiredPaths) {
+    Assert-Exists -Path $path -Message "Required runtime file or directory was not found."
+}
+
+Assert-NotExists -Path (Join-Path $finalRoot "tools\rembg\.venv") -Message "Legacy rembg .venv must not be included."
+
+Write-Step "Running portable Python import checks"
+Invoke-CommandChecked -FilePath $pythonExe -Arguments @("-c", "import rembg; print('rembg ok')") -WorkingDirectory $root
+Invoke-CommandChecked -FilePath $pythonExe -Arguments @("-c", "import onnxruntime; print('onnxruntime ok')") -WorkingDirectory $root
+Invoke-CommandChecked -FilePath $pythonExe -Arguments @("-c", "import PIL, numpy; print('postprocess deps ok')") -WorkingDirectory $root
+
+Write-Step "Creating zip package"
+Compress-InternalPackage -SourceDir $internalDir -ZipPath $zipPath
+
+$zip = Get-Item -LiteralPath $zipPath
+$zipSizeMb = [Math]::Round($zip.Length / 1MB, 2)
+Write-Host ""
+Write-Host "Zip created: $zipPath"
+Write-Host "Zip size: $zipSizeMb MB"
+
+if ($zipSizeMb -gt 700) {
+    Write-Warning "Zip is larger than 700 MB. Check for legacy tools/rembg/.venv, sample output directories, old zips, nested release folders, or other stale build artifacts."
+}
+
+Write-Host ""
+Write-Host "Total elapsed: $([Math]::Round($script:BuildStopwatch.Elapsed.TotalSeconds, 1))s"
+Write-Host "Build log: $logPath"
+Write-Host "Internal package build completed."
+}
+finally {
+    Stop-Transcript | Out-Null
+}
