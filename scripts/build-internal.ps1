@@ -43,6 +43,25 @@ function Assert-NotExists {
     }
 }
 
+function Wait-ForPath {
+    param(
+        [string]$Path,
+        [int]$TimeoutSeconds = 30
+    )
+
+    $deadline = (Get-Date).AddSeconds($TimeoutSeconds)
+
+    while ((Get-Date) -lt $deadline) {
+        if (Test-Path -LiteralPath $Path) {
+            return
+        }
+
+        Start-Sleep -Milliseconds 250
+    }
+
+    throw "Timed out waiting for path: $Path"
+}
+
 function Invoke-CommandChecked {
     param(
         [string]$FilePath,
@@ -83,6 +102,30 @@ function Find-Csc {
     throw "Could not find .NET Framework csc.exe."
 }
 
+function Find-ResourceHacker {
+    $candidates = @()
+
+    if ($env:SCS_RESOURCE_HACKER_EXE) {
+        $candidates += $env:SCS_RESOURCE_HACKER_EXE
+    }
+
+    $candidates += @(
+        (Join-Path $env:LOCALAPPDATA "electron-builder\Cache\winCodeSign\winCodeSign-2.6.0\ResourceHacker.exe"),
+        (Join-Path $env:LOCALAPPDATA "Programs\Resource Hacker\ResourceHacker.exe"),
+        "C:\Program Files\Resource Hacker\ResourceHacker.exe",
+        "C:\Program Files (x86)\Resource Hacker\ResourceHacker.exe",
+        (Join-Path (Get-RepoRoot) "release\tools\resource-hacker\ResourceHacker.exe")
+    )
+
+    foreach ($candidate in $candidates) {
+        if ($candidate -and (Test-Path -LiteralPath $candidate)) {
+            return (Resolve-Path -LiteralPath $candidate).Path
+        }
+    }
+
+    throw "Could not find ResourceHacker.exe. Set SCS_RESOURCE_HACKER_EXE or place it at release\tools\resource-hacker\ResourceHacker.exe."
+}
+
 function Remove-IfExists {
     param([string]$Path)
 
@@ -96,6 +139,7 @@ function Remove-SampleOutputs {
     param([string]$Root)
 
     $sampleRoots = @(
+        (Join-Path $Root "portable-root\samples"),
         (Join-Path $Root "samples"),
         (Join-Path $Root "public\samples")
     )
@@ -115,6 +159,23 @@ function Remove-SampleOutputs {
                 }
         }
     }
+}
+
+function Keep-OnlySampleVideo {
+    param([string]$Root)
+
+    $sampleRoot = Join-Path $Root "portable-root\samples"
+
+    if (-not (Test-Path -LiteralPath $sampleRoot)) {
+        return
+    }
+
+    Get-ChildItem -LiteralPath $sampleRoot -Force |
+        Where-Object { $_.Name -ne "sample_video.mp4" } |
+        ForEach-Object {
+            Write-Host "Removing sample extra $($_.FullName)"
+            Remove-Item -LiteralPath $_.FullName -Recurse -Force
+        }
 }
 
 function Compress-InternalPackage {
@@ -169,6 +230,8 @@ Remove-IfExists -Path $legacyRembgDir
 
 Write-Step "Cleaning sample output directories"
 Remove-SampleOutputs -Root $root
+Remove-SampleOutputs -Root (Join-Path $winUnpackedDir "resources")
+Keep-OnlySampleVideo -Root (Join-Path $winUnpackedDir "resources")
 
 Write-Step "Assembling internal green package"
 Remove-IfExists -Path $internalDir
@@ -196,6 +259,26 @@ $cscArgs = @(
     $launcherSource
 )
 Invoke-CommandChecked -FilePath $csc -Arguments $cscArgs -WorkingDirectory $root
+
+Write-Step "Replacing launcher Win32 icon resource"
+$resourceHacker = Find-ResourceHacker
+$resourceHackerOutput = "$launcherOutput.rh.exe"
+Remove-IfExists -Path $resourceHackerOutput
+$resourceHackerArgs = @(
+    "-open",
+    $launcherOutput,
+    "-save",
+    $resourceHackerOutput,
+    "-action",
+    "addoverwrite",
+    "-res",
+    $iconPath,
+    "-mask",
+    "ICONGROUP,MAINICON,0"
+)
+Invoke-CommandChecked -FilePath $resourceHacker -Arguments $resourceHackerArgs -WorkingDirectory $root
+Wait-ForPath -Path $resourceHackerOutput -TimeoutSeconds 30
+Move-Item -LiteralPath $resourceHackerOutput -Destination $launcherOutput -Force
 
 Write-Step "Validating portable runtime layout"
 $finalRoot = Join-Path $internalAppDir "resources\portable-root"

@@ -383,30 +383,41 @@ package.json 中的 extraResources 应把 portable-root 注入：
 这个状态是后续开发的稳定基线。  
 不要破坏这条运行链路。
 
+后续迭代基线文档是：
+
+    docs/ITERATION_BASELINE.md
+
+每完成一个阶段后，必须先回顾并更新该文档，再确定下一个阶段目标。  
+阶段回顾时至少确认：目标是否完成、验证命令是否通过、是否影响绿色包 / launcher / portable Python / rembg 链路、下个阶段的唯一主目标是什么。
+
 ---
 
 ## 16. 后续推荐优先级
 
 第一优先级：
 
-    scripts/build-internal.ps1 自动化构建脚本
+    提交当前稳定基线
+    docs/BUILD-INTERNAL.md 构建说明
+    docs/PORTABLE-RUNTIME.md 运行时说明
+    docs/ITERATION_BASELINE.md 阶段回顾
 
 第二优先级：
 
     启动自检升级为真实运行检查
+    版本号与发布规范
 
 第三优先级：
-
-    docs/BUILD-INTERNAL.md 构建说明
-    docs/PORTABLE-RUNTIME.md 运行时说明
-
-第四优先级：
 
     Project System 工程系统
     序列帧时间轴
     缩略图缓存
+
+第四优先级：
+
     任务队列
     导出系统
+    缓存系统
+    处理效果增强
 
 ---
 
