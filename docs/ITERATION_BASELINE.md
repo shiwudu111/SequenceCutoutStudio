@@ -2,7 +2,7 @@
 
 版本定位：第一版内测绿色包已通过，进入发布流程固化与下一轮功能开发准备
 
-当前阶段：Phase 3D-4 启动体验与真实自检增强已完成，下一阶段进入 Phase 4A
+当前阶段：Phase 4A 工程系统 Project System 已完成，下一阶段进入 Phase 4B
 
 基线日期：2026-05-28
 
@@ -129,8 +129,8 @@ Phase 3D-3：自动化构建                     已完成基础闭环
 Phase 3D-3B：稳定基线归档与构建文档        已完成
 Phase 3D-5：版本号与发布规范                已完成
 Phase 3D-4：启动体验与真实自检增强          已完成
-Phase 4A：工程系统 Project System
-Phase 4B：序列帧时间轴与缩略图
+Phase 4A：工程系统 Project System          已完成
+Phase 4B：序列帧时间轴与缩略图              下一阶段
 Phase 4C：任务队列与批处理稳定化
 Phase 4D：导出系统
 Phase 4E：缓存系统
@@ -337,22 +337,22 @@ SequenceCutoutStudio-Internal-v0.4.0-internal.1-win-x64.zip
 
 # Phase 4A：工程系统 Project System
 
-状态：功能开发主线第一阶段。
+状态：已完成。
 
 目标：从“处理一个文件或文件夹”升级为“管理一个素材处理工程”。
 
 需要完成：
 
 ```text
-[ ] 新建工程
-[ ] 打开工程
-[ ] 保存工程
-[ ] 最近工程列表
-[ ] 导入视频到工程
-[ ] 导入序列帧到工程
-[ ] 保存处理参数
-[ ] 保存预览设置
-[ ] 保存输出记录
+[x] 新建工程
+[x] 打开工程
+[x] 保存工程
+[x] 最近工程列表
+[x] 导入视频到工程
+[x] 导入序列帧到工程
+[x] 保存处理参数
+[x] 保存预览设置
+[x] 保存输出记录
 ```
 
 推荐工程结构：
@@ -366,6 +366,18 @@ MyProject/
 ├─ temp/
 ├─ thumbnails/
 └─ masks/
+```
+
+阶段回顾：
+
+```text
+目标是否完成：已完成第一版工程系统。
+实际完成：新增 project.json 工程文件；新建 / 打开 / 保存工程；最近工程列表；工程目录自动创建 source/cache/output/temp/thumbnails/masks；工程内保存素材路径、处理参数、预览设置和输出目录记录。
+验证命令：tsc --noEmit 通过；npm.cmd run build 通过；build-internal.ps1 提权后通过。
+绿色包验证：rembg / onnxruntime / PIL / numpy import 通过。
+产物：release/SequenceCutoutStudio-Internal-v0.4.0-internal.1-win-x64.zip，约 553.78 MB。
+稳定链路影响：不改变 portable Python / rembg_runner / postprocess 链路。
+下个阶段唯一主目标：Phase 4B 序列帧时间轴与缩略图。
 ```
 
 ---
@@ -616,5 +628,5 @@ portable Python 运行时验证
 推荐路线：
 
 ```text
-进入工程系统、时间轴、任务队列、导出和缓存
+进入时间轴、任务队列、导出和缓存
 ```

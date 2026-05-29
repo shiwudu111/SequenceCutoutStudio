@@ -86,6 +86,11 @@ function App(): JSX.Element {
   const [compareItems, setCompareItems] = useState<CompareItem[]>([])
   const [configPath, setConfigPath] = useState('')
   const [configMessage, setConfigMessage] = useState('尚未保存配置')
+  const [projectDir, setProjectDir] = useState('')
+  const [projectPath, setProjectPath] = useState('')
+  const [projectName, setProjectName] = useState('尚未打开工程')
+  const [projectMessage, setProjectMessage] = useState('新建或打开工程后，可保存当前素材和参数。')
+  const [recentProjects, setRecentProjects] = useState<RecentProject[]>([])
   const [selfCheckResult, setSelfCheckResult] = useState<SelfCheckResult | null>(null)
   const [isSelfChecking, setIsSelfChecking] = useState(false)
   const [activeComparePreset, setActiveComparePreset] = useState<Preset | null>(null)
@@ -95,7 +100,7 @@ function App(): JSX.Element {
   const previewCacheRef = useRef<Map<string, string>>(new Map())
   const [logs, setLogs] = useState<string[]>([
     'Sequence Cutout Studio 已启动。',
-    '当前阶段：Phase 3D-5 - 版本号与发布规范。'
+    '当前阶段：Phase 4A - 工程系统。'
   ])
 
   const appendLog = (line: string): void => {
@@ -107,6 +112,15 @@ function App(): JSX.Element {
       setAppVersion(info.version)
       appendLog(`当前版本：v${info.version}`)
     })
+  }, [])
+
+  const refreshRecentProjects = async (): Promise<void> => {
+    const recent = await window.cutoutAPI.listRecentProjects()
+    setRecentProjects(recent)
+  }
+
+  useEffect(() => {
+    void refreshRecentProjects()
   }, [])
 
   const joinWindowsPath = (folderPath: string, fileName: string): string => {
@@ -555,6 +569,9 @@ function App(): JSX.Element {
       inputPath,
       selectedFolder,
       selectedVideo,
+      outputFolder,
+      rawFolder,
+      softFolder,
       assetType,
       frameCount,
       frameSize,
@@ -572,7 +589,13 @@ function App(): JSX.Element {
     }
   }
 
-  const applyProcessConfig = async (config: ProcessConfig): Promise<void> => {
+  const applyProcessConfig = async (
+    config: ProcessConfig,
+    filesOverride = frameFiles,
+    folderOverride = selectedFolder,
+    rawFolderOverride = rawFolder,
+    softFolderOverride = softFolder
+  ): Promise<void> => {
     const nextPreset = config.preset ?? preset
     const nextAlphaLow = Number.isFinite(config.alphaLow) ? config.alphaLow : alphaLow
     const nextShrink = Number.isFinite(config.shrink) ? config.shrink : shrink
@@ -592,6 +615,9 @@ function App(): JSX.Element {
     setVideoOutputPrefix(config.videoOutputPrefix || videoOutputPrefix)
     setPlaybackFps(nextPlaybackFps)
     setPreviewBackground(nextPreviewBackground)
+    setOutputFolder(config.outputFolder || '')
+    setRawFolder(config.rawFolder || '')
+    setSoftFolder(config.softFolder || '')
 
     if (config.customPreviewBackgroundPath) {
       setCustomPreviewBackgroundPath(config.customPreviewBackgroundPath)
@@ -610,17 +636,128 @@ function App(): JSX.Element {
 
     setActivePreviewTab(nextActivePreviewTab)
 
-    if (config.lastFrameName && frameFiles.length > 0) {
-      const frameIndex = frameFiles.findIndex((fileName) => fileName === config.lastFrameName)
+    if (config.lastFrameName && filesOverride.length > 0) {
+      const frameIndex = filesOverride.findIndex((fileName) => fileName === config.lastFrameName)
 
       if (frameIndex >= 0) {
-        await loadFrameByIndex(frameIndex)
+        await loadFrameByIndex(
+          frameIndex,
+          filesOverride,
+          folderOverride,
+          rawFolderOverride,
+          softFolderOverride
+        )
       }
     }
 
     appendLog(
       `已应用配置：${nextPreset} / AlphaLow=${nextAlphaLow} / Shrink=${nextShrink} / 播放FPS=${nextPlaybackFps} / 背景=${nextPreviewBackground}`
     )
+  }
+
+  const applyProjectResult = async (result: ProjectResult): Promise<void> => {
+    if (!result.ok || !result.project) {
+      if (!result.canceled) {
+        appendLog(`工程操作失败：${result.message ?? '未知错误'}`)
+        setProjectMessage(result.message ?? '工程操作失败')
+      }
+      return
+    }
+
+    const config = result.project.config
+
+    setProjectDir(result.projectDir)
+    setProjectPath(result.projectPath)
+    setProjectName(result.project.name)
+    setProjectMessage(`工程已打开：${result.project.name}`)
+    setSelectedVideo(config.selectedVideo || '')
+
+    if (config.selectedFolder) {
+      appendLog(`正在恢复工程序列帧：${config.selectedFolder}`)
+      const scanResult = await window.cutoutAPI.scanFrameFolder(config.selectedFolder)
+      await applyFrameFolderScanResult(config.selectedFolder, scanResult)
+      await applyProcessConfig(
+        config,
+        scanResult.files ?? [],
+        config.selectedFolder,
+        config.rawFolder || '',
+        config.softFolder || ''
+      )
+    } else if (config.selectedVideo) {
+      applySelectedVideo(config.selectedVideo)
+      await applyProcessConfig(config)
+    } else {
+      await applyProcessConfig(config)
+    }
+
+    setConfigMessage('工程参数已恢复')
+    appendLog(`工程已打开：${result.projectPath}`)
+    await refreshRecentProjects()
+  }
+
+  const handleCreateProject = async (): Promise<void> => {
+    appendLog('正在新建工程...')
+    const result = await window.cutoutAPI.createProject({ config: buildProcessConfig() })
+
+    if (!result.ok || !result.project) {
+      if (!result.canceled) {
+        appendLog(`新建工程失败：${result.message ?? '未知错误'}`)
+        setProjectMessage(result.message ?? '新建工程失败')
+      } else {
+        appendLog('已取消新建工程。')
+      }
+      return
+    }
+
+    setProjectDir(result.projectDir)
+    setProjectPath(result.projectPath)
+    setProjectName(result.project.name)
+    setProjectMessage(`工程已创建：${result.project.name}`)
+    appendLog(`工程已创建：${result.projectPath}`)
+    await refreshRecentProjects()
+  }
+
+  const handleSaveProject = async (): Promise<void> => {
+    if (!projectDir) {
+      await handleCreateProject()
+      return
+    }
+
+    appendLog('正在保存工程...')
+    const result = await window.cutoutAPI.saveProject({
+      projectDir,
+      config: buildProcessConfig()
+    })
+
+    if (!result.ok || !result.project) {
+      appendLog(`工程保存失败：${result.message ?? '未知错误'}`)
+      setProjectMessage(result.message ?? '工程保存失败')
+      return
+    }
+
+    setProjectPath(result.projectPath)
+    setProjectName(result.project.name)
+    setProjectMessage(`工程已保存：${result.project.name}`)
+    appendLog(`工程已保存：${result.projectPath}`)
+    await refreshRecentProjects()
+  }
+
+  const handleOpenProject = async (): Promise<void> => {
+    appendLog('正在打开工程...')
+    const result = await window.cutoutAPI.openProject()
+
+    if (result.canceled) {
+      appendLog('已取消打开工程。')
+      return
+    }
+
+    await applyProjectResult(result)
+  }
+
+  const handleOpenRecentProject = async (recent: RecentProject): Promise<void> => {
+    appendLog(`正在打开最近工程：${recent.name}`)
+    const result = await window.cutoutAPI.openRecentProject(recent.projectDir)
+    await applyProjectResult(result)
   }
 
   const handleSaveProcessConfig = async (): Promise<void> => {
@@ -957,9 +1094,39 @@ function App(): JSX.Element {
 
         <div className="phase-card">
           <span>当前阶段</span>
-          <strong>Phase 3D-5</strong>
-          <p>版本号、发布命名和反馈追踪。</p>
+          <strong>Phase 4A</strong>
+          <p>工程文件、最近工程和参数恢复。</p>
           <small>{appVersion ? `v${appVersion}` : '读取版本中...'}</small>
+        </div>
+
+        <div className="project-card">
+          <div className="project-card-header">
+            <span>当前工程</span>
+            <strong>{projectName}</strong>
+          </div>
+          <p>{projectMessage}</p>
+          {projectPath ? <small>{projectPath}</small> : null}
+          <div className="project-actions">
+            <button onClick={handleCreateProject}>新建工程</button>
+            <button onClick={handleOpenProject}>打开工程</button>
+            <button onClick={handleSaveProject}>保存工程</button>
+          </div>
+
+          {recentProjects.length > 0 ? (
+            <div className="recent-projects">
+              <span>最近工程</span>
+              {recentProjects.slice(0, 3).map((recent) => (
+                <button
+                  key={recent.projectPath}
+                  onClick={() => {
+                    void handleOpenRecentProject(recent)
+                  }}
+                >
+                  {recent.name}
+                </button>
+              ))}
+            </div>
+          ) : null}
         </div>
 
         <div className="self-check-card">

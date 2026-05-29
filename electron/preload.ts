@@ -7,6 +7,68 @@ contextBridge.exposeInMainWorld('cutoutAPI', {
 
   selectVideoFile: () => ipcRenderer.invoke('dialog:select-video-file'),
 
+  createProject: (args: {
+    config: {
+      version: 1
+      updatedAt: string
+      inputPath: string
+      selectedFolder: string
+      selectedVideo: string
+      outputFolder: string
+      rawFolder: string
+      softFolder: string
+      assetType: string
+      frameCount: string
+      frameSize: string
+      preset: 'C' | 'F' | 'I' | 'Custom'
+      alphaLow: number
+      shrink: number
+      videoFps: number
+      videoDuration: number
+      videoOutputPrefix: string
+      playbackFps: number
+      previewBackground: 'checker' | 'black' | 'white' | 'gray' | 'custom'
+      customPreviewBackgroundPath: string
+      lastFrameName: string
+      activePreviewTab: 'original' | 'raw' | 'soft'
+    }
+  }) => ipcRenderer.invoke('project:create', args),
+
+  saveProject: (args: {
+    projectDir: string
+    config: {
+      version: 1
+      updatedAt: string
+      inputPath: string
+      selectedFolder: string
+      selectedVideo: string
+      outputFolder: string
+      rawFolder: string
+      softFolder: string
+      assetType: string
+      frameCount: string
+      frameSize: string
+      preset: 'C' | 'F' | 'I' | 'Custom'
+      alphaLow: number
+      shrink: number
+      videoFps: number
+      videoDuration: number
+      videoOutputPrefix: string
+      playbackFps: number
+      previewBackground: 'checker' | 'black' | 'white' | 'gray' | 'custom'
+      customPreviewBackgroundPath: string
+      lastFrameName: string
+      activePreviewTab: 'original' | 'raw' | 'soft'
+    }
+  }) => ipcRenderer.invoke('project:save', args),
+
+  openProject: () => ipcRenderer.invoke('project:open'),
+
+  openRecentProject: (projectDir: string) =>
+    ipcRenderer.invoke('project:open-recent', projectDir),
+
+  listRecentProjects: () => ipcRenderer.invoke('project:list-recent'),
+
   getDroppedPath: (file: File) => webUtils.getPathForFile(file),
 
   resolveDroppedPath: (filePath: string) =>
@@ -55,6 +117,9 @@ contextBridge.exposeInMainWorld('cutoutAPI', {
       inputPath: string
       selectedFolder: string
       selectedVideo: string
+      outputFolder: string
+      rawFolder: string
+      softFolder: string
       assetType: string
       frameCount: string
       frameSize: string

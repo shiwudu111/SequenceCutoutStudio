@@ -128,6 +128,78 @@ button {
   color: #526175;
 }
 
+.project-card {
+  display: grid;
+  gap: 12px;
+  padding: 14px;
+  border-radius: 18px;
+  background: #f8fafc;
+  border: 1px solid #d8e0ec;
+}
+
+.project-card-header {
+  display: grid;
+  gap: 4px;
+}
+
+.project-card-header span,
+.recent-projects span {
+  color: #8290a3;
+  font-size: 12px;
+}
+
+.project-card-header strong {
+  overflow: hidden;
+  color: #1f2a44;
+  font-size: 15px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.project-card p {
+  margin: 0;
+  color: #6c788a;
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.project-card small {
+  overflow: hidden;
+  color: #526175;
+  font-size: 11px;
+  line-height: 1.4;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.project-actions,
+.recent-projects {
+  display: grid;
+  gap: 8px;
+}
+
+.project-actions {
+  grid-template-columns: 1fr;
+}
+
+.project-actions button,
+.recent-projects button {
+  min-height: 36px;
+  border: 1px solid #dbe3ef;
+  border-radius: 12px;
+  padding: 8px 10px;
+  color: #334158;
+  background: white;
+  font-size: 12px;
+  font-weight: 800;
+  text-align: left;
+}
+
+.project-actions button:hover,
+.recent-projects button:hover {
+  background: #eef2ff;
+}
+
 .workspace {
   padding: 28px;
   overflow: auto;

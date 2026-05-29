@@ -32,7 +32,55 @@ const DEV_REMBG_RUNNER_SCRIPT =
 const DEV_MODEL_DIR = process.env.SCS_DEV_MODEL_DIR ?? path.join(DEV_CORE_DIR, 'tools', 'models')
 
 const PROCESS_CONFIG_FILE_NAME = 'process-config.json'
+const PROJECT_FILE_NAME = 'project.json'
+const RECENT_PROJECTS_FILE_NAME = 'recent-projects.json'
 const RAW_MANIFEST_FILE_NAME = '.raw-manifest.json'
+
+type ProcessConfig = {
+  version: 1
+  updatedAt: string
+  inputPath: string
+  selectedFolder: string
+  selectedVideo: string
+  outputFolder: string
+  rawFolder: string
+  softFolder: string
+  assetType: string
+  frameCount: string
+  frameSize: string
+  preset: 'C' | 'F' | 'I' | 'Custom'
+  alphaLow: number
+  shrink: number
+  videoFps: number
+  videoDuration: number
+  videoOutputPrefix: string
+  playbackFps: number
+  previewBackground: 'checker' | 'black' | 'white' | 'gray' | 'custom'
+  customPreviewBackgroundPath: string
+  lastFrameName: string
+  activePreviewTab: 'original' | 'raw' | 'soft'
+}
+
+type ProjectFile = {
+  version: 1
+  name: string
+  createdAt: string
+  updatedAt: string
+  source: {
+    inputPath: string
+    selectedFolder: string
+    selectedVideo: string
+    assetType: string
+  }
+  config: ProcessConfig
+}
+
+type RecentProject = {
+  name: string
+  projectDir: string
+  projectPath: string
+  updatedAt: string
+}
 
 type RuntimePaths = {
   rootDir: string
@@ -482,27 +530,7 @@ async function readImageAsDataUrl(filePath: string) {
 
 async function saveProcessConfig(args: {
   folderPath: string
-  config: {
-    version: 1
-    updatedAt: string
-    inputPath: string
-    selectedFolder: string
-    selectedVideo: string
-    assetType: string
-    frameCount: string
-    frameSize: string
-    preset: 'C' | 'F' | 'I' | 'Custom'
-    alphaLow: number
-    shrink: number
-    videoFps: number
-    videoDuration: number
-    videoOutputPrefix: string
-    playbackFps: number
-    previewBackground: 'checker' | 'black' | 'white' | 'gray' | 'custom'
-    customPreviewBackgroundPath: string
-    lastFrameName: string
-    activePreviewTab: 'original' | 'raw' | 'soft'
-  }
+  config: ProcessConfig
 }) {
   const folderPath = path.resolve(args.folderPath)
   const configPath = path.join(folderPath, PROCESS_CONFIG_FILE_NAME)
@@ -601,6 +629,118 @@ async function checkWritableDir(key: string, label: string, dirPath: string): Pr
       status: 'error',
       message: error instanceof Error ? error.message : String(error)
     }
+  }
+}
+
+async function ensureProjectDirs(projectDir: string): Promise<void> {
+  const dirs = ['source', 'cache', 'output', 'temp', 'thumbnails', 'masks']
+  await fs.mkdir(projectDir, { recursive: true })
+
+  await Promise.all(
+    dirs.map((dirName) => fs.mkdir(path.join(projectDir, dirName), { recursive: true }))
+  )
+}
+
+function getProjectPath(projectDir: string): string {
+  return path.join(projectDir, PROJECT_FILE_NAME)
+}
+
+function buildProjectFile(projectDir: string, config: ProcessConfig, existing?: ProjectFile): ProjectFile {
+  const now = new Date().toISOString()
+
+  return {
+    version: 1,
+    name: existing?.name || path.basename(projectDir),
+    createdAt: existing?.createdAt || now,
+    updatedAt: now,
+    source: {
+      inputPath: config.inputPath,
+      selectedFolder: config.selectedFolder,
+      selectedVideo: config.selectedVideo,
+      assetType: config.assetType
+    },
+    config: {
+      ...config,
+      updatedAt: now
+    }
+  }
+}
+
+async function readRecentProjects(runtimePaths = getRuntimePaths()): Promise<RecentProject[]> {
+  const recentPath = path.join(runtimePaths.projectsDir, RECENT_PROJECTS_FILE_NAME)
+
+  try {
+    const raw = await fs.readFile(recentPath, 'utf8')
+    const parsed = JSON.parse(raw)
+
+    return Array.isArray(parsed) ? parsed : []
+  } catch {
+    return []
+  }
+}
+
+async function writeRecentProjects(projectDir: string, project: ProjectFile): Promise<void> {
+  const runtimePaths = getRuntimePaths()
+  const projectPath = getProjectPath(projectDir)
+  const recentPath = path.join(runtimePaths.projectsDir, RECENT_PROJECTS_FILE_NAME)
+  const recent = await readRecentProjects(runtimePaths)
+  const nextItem: RecentProject = {
+    name: project.name,
+    projectDir,
+    projectPath,
+    updatedAt: project.updatedAt
+  }
+
+  const next = [
+    nextItem,
+    ...recent.filter((item) => path.resolve(item.projectDir) !== path.resolve(projectDir))
+  ].slice(0, 8)
+
+  await fs.mkdir(runtimePaths.projectsDir, { recursive: true })
+  await fs.writeFile(recentPath, JSON.stringify(next, null, 2), 'utf8')
+}
+
+async function saveProject(projectDir: string, config: ProcessConfig) {
+  const resolvedProjectDir = path.resolve(projectDir)
+  const projectPath = getProjectPath(resolvedProjectDir)
+  let existing: ProjectFile | undefined
+
+  try {
+    existing = JSON.parse(await fs.readFile(projectPath, 'utf8'))
+  } catch {
+    existing = undefined
+  }
+
+  await ensureProjectDirs(resolvedProjectDir)
+
+  const project = buildProjectFile(resolvedProjectDir, config, existing)
+  await fs.writeFile(projectPath, JSON.stringify(project, null, 2), 'utf8')
+  await writeRecentProjects(resolvedProjectDir, project)
+
+  return {
+    ok: true,
+    message: '工程已保存。',
+    projectDir: resolvedProjectDir,
+    projectPath,
+    project
+  }
+}
+
+async function openProject(projectDir: string) {
+  const resolvedProjectDir = path.resolve(projectDir)
+  const projectPath = getProjectPath(resolvedProjectDir)
+  const raw = await fs.readFile(projectPath, 'utf8')
+  const project = JSON.parse(raw) as ProjectFile
+
+  await ensureProjectDirs(resolvedProjectDir)
+  await writeRecentProjects(resolvedProjectDir, project)
+
+  return {
+    ok: true,
+    message: '工程已打开。',
+    projectDir: resolvedProjectDir,
+    projectPath,
+    project
   }
 }
 
@@ -1175,6 +1315,92 @@ ipcMain.handle('dialog:select-frame-folder', async () => {
   }
 
   return result.filePaths[0]
+})
+
+ipcMain.handle('project:create', async (_event, args: { config: ProcessConfig }) => {
+  const result = await dialog.showOpenDialog({
+    title: '选择工程保存目录',
+    properties: ['openDirectory', 'createDirectory']
+  })
+
+  if (result.canceled || result.filePaths.length === 0) {
+    return {
+      ok: false,
+      canceled: true,
+      message: '已取消新建工程。',
+      projectDir: '',
+      projectPath: ''
+    }
+  }
+
+  try {
+    return await saveProject(result.filePaths[0], args.config)
+  } catch (error) {
+    return {
+      ok: false,
+      message: error instanceof Error ? error.message : String(error),
+      projectDir: result.filePaths[0],
+      projectPath: getProjectPath(result.filePaths[0])
+    }
+  }
+})
+
+ipcMain.handle('project:save', async (_event, args: { projectDir: string; config: ProcessConfig }) => {
+  try {
+    return await saveProject(args.projectDir, args.config)
+  } catch (error) {
+    return {
+      ok: false,
+      message: error instanceof Error ? error.message : String(error),
+      projectDir: args.projectDir,
+      projectPath: args.projectDir ? getProjectPath(args.projectDir) : ''
+    }
+  }
+})
+
+ipcMain.handle('project:open', async () => {
+  const result = await dialog.showOpenDialog({
+    title: '打开工程目录',
+    properties: ['openDirectory']
+  })
+
+  if (result.canceled || result.filePaths.length === 0) {
+    return {
+      ok: false,
+      canceled: true,
+      message: '已取消打开工程。',
+      projectDir: '',
+      projectPath: ''
+    }
+  }
+
+  try {
+    return await openProject(result.filePaths[0])
+  } catch (error) {
+    return {
+      ok: false,
+      message: error instanceof Error ? error.message : String(error),
+      projectDir: result.filePaths[0],
+      projectPath: getProjectPath(result.filePaths[0])
+    }
+  }
+})
+
+ipcMain.handle('project:open-recent', async (_event, projectDir: string) => {
+  try {
+    return await openProject(projectDir)
+  } catch (error) {
+    return {
+      ok: false,
+      message: error instanceof Error ? error.message : String(error),
+      projectDir,
+      projectPath: projectDir ? getProjectPath(projectDir) : ''
+    }
+  }
+})
+
+ipcMain.handle('project:list-recent', async () => {
+  return readRecentProjects()
 })
 
 ipcMain.handle('frames:scan-folder', async (_event, folderPath: string) => {

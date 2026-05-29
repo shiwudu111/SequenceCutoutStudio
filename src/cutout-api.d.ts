@@ -112,6 +112,9 @@ declare global {
         inputPath: string
         selectedFolder: string
         selectedVideo: string
+        outputFolder: string
+        rawFolder: string
+        softFolder: string
         assetType: string
         frameCount: string
         frameSize: string
@@ -138,6 +141,36 @@ declare global {
         message?: string
         configPath: string
         config?: ProcessConfig
+    }
+
+    type ProjectFile = {
+        version: 1
+        name: string
+        createdAt: string
+        updatedAt: string
+        source: {
+            inputPath: string
+            selectedFolder: string
+            selectedVideo: string
+            assetType: string
+        }
+        config: ProcessConfig
+    }
+
+    type ProjectResult = {
+        ok: boolean
+        canceled?: boolean
+        message?: string
+        projectDir: string
+        projectPath: string
+        project?: ProjectFile
+    }
+
+    type RecentProject = {
+        name: string
+        projectDir: string
+        projectPath: string
+        updatedAt: string
     }
 
     type SelfCheckStatus = 'ok' | 'missing' | 'error'
@@ -168,6 +201,11 @@ declare global {
             getAppInfo: () => Promise<AppInfo>
             selectFrameFolder: () => Promise<string | null>
             selectVideoFile: () => Promise<string | null>
+            createProject: (args: { config: ProcessConfig }) => Promise<ProjectResult>
+            saveProject: (args: { projectDir: string; config: ProcessConfig }) => Promise<ProjectResult>
+            openProject: () => Promise<ProjectResult>
+            openRecentProject: (projectDir: string) => Promise<ProjectResult>
+            listRecentProjects: () => Promise<RecentProject[]>
             getDroppedPath: (file: File) => string
             resolveDroppedPath: (filePath: string) => Promise<ResolveDroppedPathResult>
             scanFrameFolder: (folderPath: string) => Promise<FrameFolderScanResult>
