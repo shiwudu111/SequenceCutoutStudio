@@ -615,15 +615,16 @@ button:disabled {
 
 /* Phase 1 layout v2: three-column workstation */
 .workspace {
-  height: 100vh;
-  overflow: hidden;
+  min-height: 100vh;
+  overflow: auto;
 }
 
 .content-grid {
-  height: auto;
+  height: calc(100vh - 118px);
+  min-height: 720px;
   display: grid;
   grid-template-columns: minmax(260px, 0.8fr) minmax(260px, 0.8fr) minmax(360px, 1.4fr);
-  grid-template-rows: auto auto;
+  grid-template-rows: minmax(430px, 1fr) minmax(240px, 0.42fr);
   gap: 18px;
   align-items: stretch;
 }
@@ -653,7 +654,7 @@ button:disabled {
   display: flex;
   flex-direction: column;
   min-height: 0;
-  overflow: visible;
+  overflow: auto;
 }
 
 .preview-panel .panel-header {
@@ -662,8 +663,8 @@ button:disabled {
 
 .preview-stage {
   flex: 0 0 auto;
-  height: clamp(360px, 46vh, 620px);
-  min-height: 320px;
+  height: clamp(260px, 34vh, 460px);
+  min-height: 240px;
   aspect-ratio: auto;
 }
 
@@ -677,7 +678,7 @@ button:disabled {
   grid-row: 2;
   display: flex;
   flex-direction: column;
-  min-height: 0;
+  min-height: 240px;
 }
 
 .log-panel .panel-header {
@@ -687,7 +688,7 @@ button:disabled {
 .logs {
   flex: 1;
   max-height: none;
-  min-height: 0;
+  min-height: 150px;
   overflow: auto;
 }
 
