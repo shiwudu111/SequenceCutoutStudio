@@ -1,6 +1,8 @@
 import { contextBridge, ipcRenderer, webUtils } from 'electron'
 
 contextBridge.exposeInMainWorld('cutoutAPI', {
+  getAppInfo: () => ipcRenderer.invoke('app:get-info'),
+
   selectFrameFolder: () => ipcRenderer.invoke('dialog:select-frame-folder'),
 
   selectVideoFile: () => ipcRenderer.invoke('dialog:select-video-file'),

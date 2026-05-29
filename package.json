@@ -1,7 +1,7 @@
 {
   "name": "sequence-cutout-studio",
   "private": true,
-  "version": "0.0.0",
+  "version": "0.4.0-internal.1",
   "description": "一款面向游戏美术与动画素材处理的序列帧抠图工具",
   "author": "阿Zhe",
   "type": "module",

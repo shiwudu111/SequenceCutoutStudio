@@ -133,10 +133,10 @@ build/icon.ico
 .\scripts\build-internal.ps1
 ```
 
-当前脚本默认版本号为：
+当前脚本默认会读取：
 
 ```text
-0.0.0
+package.json version
 ```
 
 也可以手动指定版本号：
@@ -156,7 +156,7 @@ release/build-internal.log
 当前已验收 zip：
 
 ```text
-release/SequenceCutoutStudio-Internal-v0.0.0-win-x64.zip
+release/SequenceCutoutStudio-Internal-v0.4.0-internal.1-win-x64.zip
 约 553.78 MB
 ```
 

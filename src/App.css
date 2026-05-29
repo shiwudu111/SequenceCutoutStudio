@@ -121,6 +121,13 @@ button {
   color: #6c788a;
 }
 
+.phase-card small {
+  display: block;
+  margin-top: 10px;
+  font-size: 12px;
+  color: #526175;
+}
+
 .workspace {
   padding: 28px;
   overflow: auto;

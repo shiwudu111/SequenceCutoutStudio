@@ -1,5 +1,5 @@
 param(
-    [string]$Version = "0.0.0"
+    [string]$Version = ""
 )
 
 $ErrorActionPreference = "Stop"
@@ -199,6 +199,13 @@ function Compress-InternalPackage {
 
 $root = Get-RepoRoot
 Set-Location -LiteralPath $root
+
+if (-not $Version) {
+    $packageJsonPath = Join-Path $root "package.json"
+    Assert-Exists -Path $packageJsonPath -Message "package.json was not found."
+    $packageJson = Get-Content -LiteralPath $packageJsonPath -Raw | ConvertFrom-Json
+    $Version = $packageJson.version
+}
 
 $releaseDir = Join-Path $root "release"
 $winUnpackedDir = Join-Path $releaseDir "win-unpacked"

@@ -125,6 +125,21 @@ type SelfCheckResult = {
   rootDir: string
   items: SelfCheckItem[]
 }
+
+type AppInfo = {
+  name: string
+  version: string
+  isPackaged: boolean
+}
+
+function getAppInfo(): AppInfo {
+  return {
+    name: app.getName(),
+    version: app.getVersion(),
+    isPackaged: app.isPackaged
+  }
+}
+
 async function notifyLauncherReady(): Promise<void> {
   const readyFile = process.env.SCS_LAUNCHER_READY_FILE
 
@@ -1073,6 +1088,8 @@ async function runBatchCutout(args: {
     postprocessLog: `${postprocessResult.stdout}\n${postprocessResult.stderr}`
   }
 }
+
+ipcMain.handle('app:get-info', async () => getAppInfo())
 
 ipcMain.handle('input:resolve-dropped-path', async (_event, inputPath: string) => {
   try {

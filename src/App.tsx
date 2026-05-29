@@ -43,6 +43,7 @@ const EDGE_PRESET_PARAMS: Record<Exclude<Preset, 'Custom'>, EdgePresetParams> = 
 
 const COMPARE_PRESETS: Preset[] = ['C', 'F', 'I', 'Custom']
 function App(): JSX.Element {
+  const [appVersion, setAppVersion] = useState('')
   const [inputPath, setInputPath] = useState('尚未选择素材')
   const [selectedFolder, setSelectedFolder] = useState('')
   const [selectedVideo, setSelectedVideo] = useState('')
@@ -94,13 +95,19 @@ function App(): JSX.Element {
   const previewCacheRef = useRef<Map<string, string>>(new Map())
   const [logs, setLogs] = useState<string[]>([
     'Sequence Cutout Studio 已启动。',
-    '当前阶段：Phase 3B - 启动自检。'
+    '当前阶段：Phase 3D-5 - 版本号与发布规范。'
   ])
 
   const appendLog = (line: string): void => {
     setLogs((prev) => [...prev, line])
   }
 
+  useEffect(() => {
+    void window.cutoutAPI.getAppInfo().then((info) => {
+      setAppVersion(info.version)
+      appendLog(`当前版本：v${info.version}`)
+    })
+  }, [])
 
   const joinWindowsPath = (folderPath: string, fileName: string): string => {
     return `${folderPath.replace(/[\\/]+$/, '')}\\${fileName}`
@@ -950,8 +957,9 @@ function App(): JSX.Element {
 
         <div className="phase-card">
           <span>当前阶段</span>
-          <strong>Phase 3B</strong>
-          <p>检查工具、模型、脚本和目录权限。</p>
+          <strong>Phase 3D-5</strong>
+          <p>版本号、发布命名和反馈追踪。</p>
+          <small>{appVersion ? `v${appVersion}` : '读取版本中...'}</small>
         </div>
 
         <div className="self-check-card">
@@ -999,7 +1007,7 @@ function App(): JSX.Element {
             <h2>序列帧透明化处理</h2>
             <p>视频 / PNG 序列帧 → AI 抠图 → 边缘后处理 → 游戏可用透明 PNG</p>
           </div>
-          <div className="status-pill">Core: E:\\cuts</div>
+          <div className="status-pill">{appVersion ? `v${appVersion}` : '读取版本中...'}</div>
         </header>
 
         <div className="content-grid">

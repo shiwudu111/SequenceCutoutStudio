@@ -2,7 +2,7 @@
 
 版本定位：第一版内测绿色包已通过，进入发布流程固化与下一轮功能开发准备
 
-当前阶段：Phase 3D-3B 稳定基线归档与构建文档收口，下一阶段进入 Phase 3D-5 / Phase 3D-4
+当前阶段：Phase 3D-5 版本号与发布规范已完成，下一阶段进入 Phase 3D-4
 
 基线日期：2026-05-28
 
@@ -127,7 +127,7 @@ SequenceCutoutStudio-Internal.exe
 Phase 3D-2：Launcher 内测绿色版收口        已完成
 Phase 3D-3：自动化构建                     已完成基础闭环
 Phase 3D-3B：稳定基线归档与构建文档        已完成
-Phase 3D-5：版本号与发布规范                下一阶段
+Phase 3D-5：版本号与发布规范                已完成
 Phase 3D-4：启动体验与真实自检增强          下一阶段
 Phase 4A：工程系统 Project System
 Phase 4B：序列帧时间轴与缩略图
@@ -278,12 +278,12 @@ AGENTS.md
 
 # Phase 3D-5：版本号与发布规范
 
-状态：下一阶段，优先级很高。
+状态：已完成。
 
-当前问题：
+已解决的问题：
 
 ```text
-当前 zip 仍是 v0.0.0
+当前 zip 已升级为 v0.4.0-internal.1
 ```
 
 建议下一个内测版本号：
@@ -295,18 +295,30 @@ AGENTS.md
 需要完成：
 
 ```text
-[ ] 修改 package.json version
-[ ] 构建脚本自动读取 version
-[ ] zip 文件名自动带版本号
-[ ] 软件界面显示当前版本
-[ ] 日志中输出当前版本
-[ ] 内测反馈模板要求提供版本号
+[x] 修改 package.json version
+[x] 构建脚本自动读取 version
+[x] zip 文件名自动带版本号
+[x] 软件界面显示当前版本
+[x] 日志中输出当前版本
+[x] 内测反馈模板要求提供版本号
 ```
 
 建议包名：
 
 ```text
-SequenceCutoutStudio-v0.4.0-internal.1-win-x64.zip
+SequenceCutoutStudio-Internal-v0.4.0-internal.1-win-x64.zip
+```
+
+阶段回顾：
+
+```text
+目标是否完成：已完成。
+实际完成：package.json / package-lock 版本升级，构建脚本默认读取 package version，UI 和处理日志显示版本号，新增内测反馈模板。
+验证命令：tsc --noEmit 通过；npm.cmd run build 通过；build-internal.ps1 提权后通过。
+绿色包验证：rembg / onnxruntime / PIL / numpy import 通过。
+产物：release/SequenceCutoutStudio-Internal-v0.4.0-internal.1-win-x64.zip，约 553.78 MB。
+稳定链路影响：不改变 portable Python / rembg_runner / postprocess 链路。
+下个阶段唯一主目标：Phase 3D-4 启动体验与真实自检增强。
 ```
 
 ---
@@ -503,10 +515,10 @@ Custom：自定义
 [x] 提交当前稳定基线
 [x] 补 docs/BUILD-INTERNAL.md
 [x] 补 docs/PORTABLE-RUNTIME.md
-[ ] package.json version 改为 0.4.0-internal.1
-[ ] build-internal.ps1 使用 version 生成 zip 名
-[ ] 软件界面显示版本号
-[ ] 重新打包并验证 Python import
+[x] package.json version 改为 0.4.0-internal.1
+[x] build-internal.ps1 使用 version 生成 zip 名
+[x] 软件界面显示版本号
+[x] 重新打包并验证 Python import
 ```
 
 目标：形成第一个有版本号、可追踪、可复现的内部绿色包。
@@ -592,8 +604,6 @@ portable Python 运行时验证
 推荐路线：
 
 ```text
-规范版本号和 zip 命名
-↓
 增强启动自检和错误提示
 ↓
 再进入工程系统、时间轴、任务队列、导出和缓存

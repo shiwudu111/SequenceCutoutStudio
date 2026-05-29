@@ -142,23 +142,30 @@ declare global {
 
     type SelfCheckStatus = 'ok' | 'missing' | 'error'
 
-type SelfCheckItem = {
-    key: string
-    label: string
-    path: string
-    status: SelfCheckStatus
-    message: string
-}
+    type SelfCheckItem = {
+        key: string
+        label: string
+        path: string
+        status: SelfCheckStatus
+        message: string
+    }
 
-type SelfCheckResult = {
-    ok: boolean
-    checkedAt: string
-    rootDir: string
-    items: SelfCheckItem[]
-}
+    type SelfCheckResult = {
+        ok: boolean
+        checkedAt: string
+        rootDir: string
+        items: SelfCheckItem[]
+    }
+
+    type AppInfo = {
+        name: string
+        version: string
+        isPackaged: boolean
+    }
 
     interface Window {
         cutoutAPI: {
+            getAppInfo: () => Promise<AppInfo>
             selectFrameFolder: () => Promise<string | null>
             selectVideoFile: () => Promise<string | null>
             getDroppedPath: (file: File) => string
