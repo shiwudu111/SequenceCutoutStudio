@@ -12,8 +12,8 @@
 
 body {
   margin: 0;
-  min-width: 1100px;
-  min-height: 720px;
+  min-width: 920px;
+  min-height: 640px;
   background: #eef2f7;
 }
 
@@ -405,7 +405,9 @@ button {
 .preview-stage {
   display: grid;
   place-items: center;
-  min-height: 420px;
+  position: relative;
+  min-height: 260px;
+  aspect-ratio: 16 / 10;
   overflow: hidden;
   border-radius: 20px;
   border: 1px solid #dbe3ef;
@@ -495,15 +497,96 @@ button {
 }
 
 .preview-image {
-  max-width: 92%;
-  max-height: 92%;
+  max-width: calc(100% - 28px);
+  max-height: calc(100% - 28px);
+  object-fit: contain;
+  image-rendering: auto;
+  filter: drop-shadow(0 18px 28px rgba(0, 0, 0, 0.18));
+  cursor: zoom-in;
+}
+
+.preview-stage.black .preview-image {
+  filter: drop-shadow(0 18px 28px rgba(255, 255, 255, 0.08));
+}
+
+.preview-hint {
+  margin-top: 8px;
+  color: #6c788a;
+  font-size: 12px;
+}
+
+.compare-slider-stage {
+  position: relative;
+  width: calc(100% - 28px);
+  height: calc(100% - 28px);
+  overflow: hidden;
+  display: grid;
+  place-items: center;
+  cursor: zoom-in;
+}
+
+.compare-slider-image {
+  width: 100%;
+  height: 100%;
   object-fit: contain;
   image-rendering: auto;
   filter: drop-shadow(0 18px 28px rgba(0, 0, 0, 0.18));
 }
 
-.preview-stage.black .preview-image {
-  filter: drop-shadow(0 18px 28px rgba(255, 255, 255, 0.08));
+.compare-slider-soft {
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  overflow: hidden;
+}
+
+.compare-slider-line {
+  position: absolute;
+  top: 8%;
+  bottom: 8%;
+  width: 2px;
+  background: #ffffff;
+  box-shadow: 0 0 0 1px rgba(30, 41, 59, 0.2);
+}
+
+.compare-slider-line span {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 22px;
+  height: 44px;
+  border-radius: 999px;
+  background: #ffffff;
+  box-shadow: 0 10px 28px rgba(15, 23, 42, 0.24);
+  transform: translate(-50%, -50%);
+}
+
+.compare-slider-input {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  cursor: ew-resize;
+}
+
+.compare-slider-labels {
+  position: absolute;
+  right: 12px;
+  bottom: 12px;
+  left: 12px;
+  display: flex;
+  justify-content: space-between;
+  pointer-events: none;
+}
+
+.compare-slider-labels span {
+  padding: 5px 8px;
+  border-radius: 999px;
+  color: #1f2a44;
+  background: rgba(255, 255, 255, 0.86);
+  font-size: 12px;
+  font-weight: 800;
 }
 
 button:disabled {
@@ -536,8 +619,8 @@ button:disabled {
 .content-grid {
   height: calc(100vh - 118px);
   display: grid;
-  grid-template-columns: 360px 360px minmax(520px, 1fr);
-  grid-template-rows: minmax(0, 1fr) 300px;
+  grid-template-columns: minmax(260px, 0.8fr) minmax(260px, 0.8fr) minmax(360px, 1.4fr);
+  grid-template-rows: minmax(0, 1fr) minmax(220px, 0.55fr);
   gap: 18px;
   align-items: stretch;
 }
@@ -628,7 +711,7 @@ button:disabled {
 
 /* 小屏兜底：窗口太窄时允许横向滚动 */
 .workspace {
-  min-width: 1260px;
+  min-width: 0;
 }
 
 .drop-zone.drag-active {
@@ -751,6 +834,204 @@ button:disabled {
   white-space: nowrap;
   font-size: 13px;
   font-weight: 700;
+}
+
+.local-timeline {
+  margin-top: 10px;
+  padding: 10px;
+  border: 1px solid #dbe3ef;
+  border-radius: 16px;
+  background: #f8fafc;
+}
+
+.local-timeline-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 8px;
+}
+
+.local-timeline-header strong {
+  color: #334158;
+  font-size: 13px;
+}
+
+.local-timeline-header span {
+  color: #7b8798;
+  font-size: 12px;
+}
+
+.local-timeline-strip {
+  display: grid;
+  grid-template-columns: repeat(11, minmax(54px, 1fr));
+  gap: 8px;
+  min-height: 76px;
+}
+
+.timeline-thumb {
+  position: relative;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  min-width: 0;
+  height: 76px;
+  border: 1px solid #dbe3ef;
+  border-radius: 12px;
+  padding: 0;
+  background: #ffffff;
+}
+
+.timeline-thumb.active {
+  border-color: #536dfe;
+  box-shadow: 0 0 0 2px rgba(83, 109, 254, 0.18);
+}
+
+.timeline-thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+.timeline-thumb > span {
+  color: #7b8798;
+  font-weight: 800;
+}
+
+.timeline-thumb small {
+  position: absolute;
+  right: 5px;
+  bottom: 5px;
+  padding: 2px 5px;
+  border-radius: 999px;
+  color: #1f2a44;
+  background: rgba(255, 255, 255, 0.88);
+  font-size: 10px;
+  font-weight: 900;
+}
+
+.timeline-empty {
+  grid-column: 1 / -1;
+  display: grid;
+  place-items: center;
+  color: #8a97aa;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.preview-lightbox {
+  position: fixed;
+  inset: 0;
+  z-index: 80;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  background: rgba(14, 18, 28, 0.88);
+}
+
+.preview-lightbox-toolbar {
+  position: absolute;
+  top: 18px;
+  right: 18px;
+  left: 18px;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
+.preview-lightbox-toolbar strong {
+  margin-right: auto;
+  color: #ffffff;
+  font-size: 14px;
+}
+
+.preview-lightbox-toolbar span,
+.preview-lightbox-toolbar button {
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 999px;
+  padding: 8px 12px;
+  color: #ffffff;
+  background: rgba(255, 255, 255, 0.12);
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.preview-lightbox img {
+  max-width: 86vw;
+  max-height: 82vh;
+  object-fit: contain;
+  cursor: grab;
+  user-select: none;
+  transform-origin: center;
+}
+
+.preview-lightbox img.dragging {
+  cursor: grabbing;
+}
+
+@media (max-width: 1240px) {
+  .app-shell {
+    grid-template-columns: 240px 1fr;
+  }
+
+  .sidebar {
+    padding: 20px 16px;
+  }
+
+  .workspace {
+    padding: 20px;
+  }
+
+  .content-grid {
+    height: auto;
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: auto;
+  }
+
+  .content-grid > section:nth-child(1),
+  .content-grid > section:nth-child(2),
+  .preview-panel,
+  .log-panel {
+    grid-column: 1;
+    grid-row: auto;
+  }
+
+  .preview-stage {
+    min-height: 360px;
+  }
+
+  .log-panel {
+    min-height: 260px;
+  }
+}
+
+@media (max-height: 760px) {
+  .topbar {
+    margin-bottom: 14px;
+  }
+
+  .topbar h2 {
+    font-size: 24px;
+  }
+
+  .content-grid {
+    height: auto;
+  }
+
+  .preview-stage {
+    min-height: 300px;
+    aspect-ratio: 16 / 9;
+  }
+
+  .local-timeline-strip {
+    min-height: 64px;
+  }
+
+  .timeline-thumb {
+    height: 64px;
+  }
 }
 .compare-panel {
   margin-top: 12px;

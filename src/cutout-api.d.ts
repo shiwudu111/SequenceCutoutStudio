@@ -128,7 +128,7 @@ declare global {
         previewBackground: 'checker' | 'black' | 'white' | 'gray' | 'custom'
         customPreviewBackgroundPath: string
         lastFrameName: string
-        activePreviewTab: 'original' | 'raw' | 'soft'
+        activePreviewTab: 'original' | 'raw' | 'soft' | 'compare'
     }
 
     type SaveProcessConfigArgs = {

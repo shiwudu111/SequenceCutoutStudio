@@ -1,9 +1,10 @@
-import { useEffect, useRef, useState, type DragEvent } from 'react'
+import { useEffect, useRef, useState, type DragEvent, type PointerEvent, type WheelEvent } from 'react'
 import './App.css'
 
 type Preset = 'C' | 'F' | 'I' | 'Custom'
 type PreviewBackground = 'checker' | 'black' | 'white' | 'gray' | 'custom'
-type PreviewTab = 'original' | 'raw' | 'soft'
+type PreviewTab = 'original' | 'raw' | 'soft' | 'compare'
+type ImageKind = 'original' | 'raw' | 'soft'
 type EdgePresetParams = {
   label: string
   alphaLow: number
@@ -97,10 +98,18 @@ function App(): JSX.Element {
   const [isDraggingInput, setIsDraggingInput] = useState(false)
   const [isPlaying, setIsPlaying] = useState(false)
   const [playbackFps, setPlaybackFps] = useState(12)
+  const [compareSplit, setCompareSplit] = useState(50)
+  const [lightboxOpen, setLightboxOpen] = useState(false)
+  const [lightboxScale, setLightboxScale] = useState(1)
+  const [lightboxOffset, setLightboxOffset] = useState({ x: 0, y: 0 })
+  const [isDraggingLightbox, setIsDraggingLightbox] = useState(false)
+  const [lightboxDragStart, setLightboxDragStart] = useState({ x: 0, y: 0 })
+  const [timelineThumbnails, setTimelineThumbnails] = useState<Record<string, string>>({})
   const previewCacheRef = useRef<Map<string, string>>(new Map())
+  const lightboxImageRef = useRef<HTMLImageElement | null>(null)
   const [logs, setLogs] = useState<string[]>([
     'Sequence Cutout Studio 已启动。',
-    '当前阶段：Phase 4A - 工程系统。'
+    '当前阶段：Phase 4B - 预览体验与帧导航。'
   ])
 
   const appendLog = (line: string): void => {
@@ -128,7 +137,7 @@ function App(): JSX.Element {
   }
 
   const loadPreviewImage = async (
-    kind: PreviewTab,
+    kind: ImageKind,
     filePath: string,
     silent = false
   ): Promise<void> => {
@@ -655,6 +664,118 @@ function App(): JSX.Element {
     )
   }
 
+  const getLocalFrameIndexes = (): number[] => {
+    if (frameFiles.length === 0) {
+      return []
+    }
+
+    const visibleCount = 11
+    const half = Math.floor(visibleCount / 2)
+    const maxStart = Math.max(0, frameFiles.length - visibleCount)
+    const start = Math.min(Math.max(0, currentFrameIndex - half), maxStart)
+    const end = Math.min(frameFiles.length, start + visibleCount)
+
+    return Array.from({ length: end - start }, (_value, offset) => start + offset)
+  }
+
+  useEffect(() => {
+    if (!selectedFolder || frameFiles.length === 0) {
+      setTimelineThumbnails({})
+      return
+    }
+
+    let canceled = false
+
+    const loadThumbnails = async (): Promise<void> => {
+      const indexes = getLocalFrameIndexes()
+      const entries = await Promise.all(
+        indexes.map(async (frameIndex) => {
+          const fileName = frameFiles[frameIndex]
+          const cacheKey = `thumb:${selectedFolder}:${fileName}`
+          const cached = previewCacheRef.current.get(cacheKey)
+
+          if (cached) {
+            return [fileName, cached] as const
+          }
+
+          const result = await window.cutoutAPI.readImageAsDataUrl(
+            joinWindowsPath(selectedFolder, fileName)
+          )
+
+          if (!result.ok) {
+            return [fileName, ''] as const
+          }
+
+          previewCacheRef.current.set(cacheKey, result.dataUrl)
+          return [fileName, result.dataUrl] as const
+        })
+      )
+
+      if (!canceled) {
+        setTimelineThumbnails(
+          Object.fromEntries(entries.filter((entry) => Boolean(entry[1])))
+        )
+      }
+    }
+
+    void loadThumbnails()
+
+    return () => {
+      canceled = true
+    }
+  }, [selectedFolder, frameFiles, currentFrameIndex])
+
+  const handleOpenLightbox = (): void => {
+    if (!displayPreviewImage) {
+      return
+    }
+
+    setLightboxOpen(true)
+    setLightboxScale(1)
+    setLightboxOffset({ x: 0, y: 0 })
+  }
+
+  const handleCloseLightbox = (): void => {
+    setLightboxOpen(false)
+    setIsDraggingLightbox(false)
+  }
+
+  const handleLightboxWheel = (event: WheelEvent<HTMLDivElement>): void => {
+    event.preventDefault()
+    const direction = event.deltaY < 0 ? 1 : -1
+    setLightboxScale((prev) => Math.max(0.35, Math.min(8, prev + direction * 0.15)))
+  }
+
+  const handleLightboxPointerDown = (event: PointerEvent<HTMLImageElement>): void => {
+    event.currentTarget.setPointerCapture(event.pointerId)
+    setIsDraggingLightbox(true)
+    setLightboxDragStart({
+      x: event.clientX - lightboxOffset.x,
+      y: event.clientY - lightboxOffset.y
+    })
+  }
+
+  const handleLightboxPointerMove = (event: PointerEvent<HTMLImageElement>): void => {
+    if (!isDraggingLightbox) {
+      return
+    }
+
+    setLightboxOffset({
+      x: event.clientX - lightboxDragStart.x,
+      y: event.clientY - lightboxDragStart.y
+    })
+  }
+
+  const handleLightboxPointerUp = (event: PointerEvent<HTMLImageElement>): void => {
+    event.currentTarget.releasePointerCapture(event.pointerId)
+    setIsDraggingLightbox(false)
+  }
+
+  const handleResetLightbox = (): void => {
+    setLightboxScale(1)
+    setLightboxOffset({ x: 0, y: 0 })
+  }
+
   const applyProjectResult = async (result: ProjectResult): Promise<void> => {
     if (!result.ok || !result.project) {
       if (!result.canceled) {
@@ -1058,14 +1179,26 @@ function App(): JSX.Element {
   }
 
   const previewTitle =
-    activePreviewTab === 'original' ? '原图' : activePreviewTab === 'raw' ? 'Raw 抠图' : 'Soft 后处理'
+    activePreviewTab === 'original'
+      ? '原图'
+      : activePreviewTab === 'raw'
+        ? 'Raw 抠图'
+        : activePreviewTab === 'soft'
+          ? 'Soft 后处理'
+          : 'Raw / Soft 对比'
 
   const activeCompareItem = activeComparePreset
     ? compareItems.find((item) => item.preset === activeComparePreset)
     : null
 
   const displayPreviewTitle = activeCompareItem ? `${activeCompareItem.label} 对比` : previewTitle
-  const displayPreviewImage = activeCompareItem?.dataUrl ?? previewImages[activePreviewTab]
+  const displayPreviewImage =
+    activeCompareItem?.dataUrl ??
+    (activePreviewTab === 'compare'
+      ? previewImages.soft || previewImages.raw
+      : previewImages[activePreviewTab])
+  const localFrameIndexes = getLocalFrameIndexes()
+  const hasCompareImages = Boolean(previewImages.raw && previewImages.soft)
 
   const selfCheckPassedCount =
     selfCheckResult?.items.filter((item: SelfCheckItem) => item.status === 'ok').length ?? 0
@@ -1430,11 +1563,43 @@ function App(): JSX.Element {
                   : undefined
               }
             >
-              {displayPreviewImage ? (
+              {activePreviewTab === 'compare' && hasCompareImages ? (
+                <div className="compare-slider-stage">
+                  <img
+                    className="compare-slider-image"
+                    src={previewImages.raw}
+                    alt="Raw preview"
+                    onDoubleClick={handleOpenLightbox}
+                  />
+                  <div
+                    className="compare-slider-soft"
+                    style={{ clipPath: `inset(0 0 0 ${compareSplit}%)` }}
+                  >
+                    <img className="compare-slider-image" src={previewImages.soft} alt="Soft preview" />
+                  </div>
+                  <div className="compare-slider-line" style={{ left: `${compareSplit}%` }}>
+                    <span />
+                  </div>
+                  <input
+                    className="compare-slider-input"
+                    type="range"
+                    min="0"
+                    max="100"
+                    value={compareSplit}
+                    onChange={(event) => setCompareSplit(Number(event.target.value))}
+                    aria-label="Raw Soft 对比滑块"
+                  />
+                  <div className="compare-slider-labels">
+                    <span>Raw</span>
+                    <span>Soft</span>
+                  </div>
+                </div>
+              ) : displayPreviewImage ? (
                 <img
                   className="preview-image"
                   src={displayPreviewImage}
                   alt={`${displayPreviewTitle} preview`}
+                  onDoubleClick={handleOpenLightbox}
                 />
               ) : (
                 <div className="preview-empty">
@@ -1442,6 +1607,9 @@ function App(): JSX.Element {
                   <p>当前标签：{displayPreviewTitle}</p>
                 </div>
               )}
+            </div>
+            <div className="preview-hint">
+              双击预览图可放大查看，Raw / Soft 对比可拖动分割线检查边缘。
             </div>
             <div className="frame-controls">
               <button onClick={handleGoToFirstFrame} disabled={frameFiles.length === 0}>
@@ -1462,6 +1630,40 @@ function App(): JSX.Element {
               <button onClick={handleGoToLastFrame} disabled={frameFiles.length === 0}>
                 末帧
               </button>
+            </div>
+
+            <div className="local-timeline">
+              <div className="local-timeline-header">
+                <strong>局部帧导航</strong>
+                <span>
+                  {frameFiles.length > 0
+                    ? `显示当前帧附近 ${localFrameIndexes.length} / ${frameFiles.length} 帧`
+                    : '等待序列帧'}
+                </span>
+              </div>
+              <div className="local-timeline-strip">
+                {localFrameIndexes.length > 0 ? (
+                  localFrameIndexes.map((frameIndex) => {
+                    const fileName = frameFiles[frameIndex]
+                    const thumbnail = timelineThumbnails[fileName]
+
+                    return (
+                      <button
+                        key={`${fileName}-${frameIndex}`}
+                        className={frameIndex === currentFrameIndex ? 'timeline-thumb active' : 'timeline-thumb'}
+                        onClick={() => {
+                          void loadFrameByIndex(frameIndex)
+                        }}
+                      >
+                        {thumbnail ? <img src={thumbnail} alt={fileName} /> : <span>{frameIndex + 1}</span>}
+                        <small>{frameIndex + 1}</small>
+                      </button>
+                    )
+                  })
+                ) : (
+                  <div className="timeline-empty">选择或打开工程后显示当前帧附近缩略图</div>
+                )}
+              </div>
             </div>
 
             <div className="key-frame-row">
@@ -1538,6 +1740,17 @@ function App(): JSX.Element {
                 Soft
               </button>
 
+              <button
+                className={!activeComparePreset && activePreviewTab === 'compare' ? 'active' : ''}
+                disabled={!hasCompareImages}
+                onClick={() => {
+                  setActiveComparePreset(null)
+                  setActivePreviewTab('compare')
+                }}
+              >
+                对比
+              </button>
+
               {COMPARE_PRESETS.map((comparePreset) => {
                 const item = compareItems.find((candidate) => candidate.preset === comparePreset)
                 const isReady = item?.status === 'done' && Boolean(item.dataUrl)
@@ -1576,6 +1789,38 @@ function App(): JSX.Element {
           </section>
         </div>
       </section>
+      {lightboxOpen ? (
+        <div
+          className="preview-lightbox"
+          onWheel={handleLightboxWheel}
+          onClick={(event) => {
+            if (event.target === event.currentTarget) {
+              handleCloseLightbox()
+            }
+          }}
+        >
+          <div className="preview-lightbox-toolbar">
+            <strong>{displayPreviewTitle}</strong>
+            <span>{Math.round(lightboxScale * 100)}%</span>
+            <button onClick={handleResetLightbox}>还原</button>
+            <button onClick={handleCloseLightbox}>关闭</button>
+          </div>
+          <img
+            ref={lightboxImageRef}
+            className={isDraggingLightbox ? 'dragging' : ''}
+            src={displayPreviewImage}
+            alt={`${displayPreviewTitle} enlarged preview`}
+            style={{
+              transform: `translate(${lightboxOffset.x}px, ${lightboxOffset.y}px) scale(${lightboxScale})`
+            }}
+            onPointerDown={handleLightboxPointerDown}
+            onPointerMove={handleLightboxPointerMove}
+            onPointerUp={handleLightboxPointerUp}
+            onDoubleClick={handleResetLightbox}
+            draggable={false}
+          />
+        </div>
+      ) : null}
     </main>
   )
 }

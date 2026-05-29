@@ -2,7 +2,7 @@
 
 版本定位：第一版内测绿色包已通过，进入发布流程固化与下一轮功能开发准备
 
-当前阶段：Phase 4A 工程系统 Project System 已完成，下一阶段进入 Phase 4B
+当前阶段：Phase 4B 预览体验与帧导航已完成，下一阶段进入 Phase 4C
 
 基线日期：2026-05-28
 
@@ -130,8 +130,8 @@ Phase 3D-3B：稳定基线归档与构建文档        已完成
 Phase 3D-5：版本号与发布规范                已完成
 Phase 3D-4：启动体验与真实自检增强          已完成
 Phase 4A：工程系统 Project System          已完成
-Phase 4B：序列帧时间轴与缩略图              下一阶段
-Phase 4C：任务队列与批处理稳定化
+Phase 4B：预览体验与帧导航                  已完成
+Phase 4C：任务队列与批处理稳定化            下一阶段
 Phase 4D：导出系统
 Phase 4E：缓存系统
 Phase 4F：处理效果增强
@@ -377,35 +377,57 @@ MyProject/
 绿色包验证：rembg / onnxruntime / PIL / numpy import 通过。
 产物：release/SequenceCutoutStudio-Internal-v0.4.0-internal.1-win-x64.zip，约 553.78 MB。
 稳定链路影响：不改变 portable Python / rembg_runner / postprocess 链路。
-下个阶段唯一主目标：Phase 4B 序列帧时间轴与缩略图。
+下个阶段唯一主目标：Phase 4B 预览体验与帧导航。
 ```
 
 ---
 
-# Phase 4B：序列帧时间轴与缩略图
+# Phase 4B：预览体验与帧导航
 
-状态：后续阶段。
+状态：已完成。
 
-目标：让用户更方便地查看和选择序列帧，避免只靠文件名和单张预览操作。
+目标：让用户在不同屏幕尺寸下都能看清预览图，并能更细致地检查 Raw / Soft 差异和当前帧附近变化。
 
 需要完成：
 
 ```text
-[ ] 序列帧时间轴
-[ ] 帧缩略图列表
-[ ] 当前帧高亮
-[ ] 点击缩略图切换当前帧
-[ ] 快速跳到第一帧 / 中间帧 / 最后一帧
-[ ] 播放 / 暂停
-[ ] 循环播放
-[ ] FPS 控制
-[ ] 关键帧标记
+[x] 预览框响应式优化
+[x] 小窗口下预览区保持可用高度
+[x] Raw / Soft 滑块对比
+[x] 点击预览图弹出大预览
+[x] 大预览支持滚轮缩放
+[x] 大预览支持拖动画面
+[x] 当前帧附近局部缩略图导航
+[x] 当前帧高亮
+[x] 点击缩略图切换帧
 ```
 
 完成标准：
 
 ```text
-即使有几百张序列帧，界面仍然可以流畅浏览和切换。
+预览窗口不会在小屏幕下被压成不可用区域；用户可以拖动滑块对比 Raw / Soft，双击放大观察细节，并通过当前帧附近缩略图快速切换帧。
+```
+
+暂缓内容：
+
+```text
+[ ] 标记问题帧
+[ ] 显示失败帧
+[ ] Raw / Soft 状态徽标
+[ ] 全量缩略图时间轴
+[ ] 复杂关键帧系统
+```
+
+阶段回顾：
+
+```text
+目标是否完成：已完成。
+实际完成：预览区响应式布局；Raw / Soft 滑块对比；双击预览弹出大图；大图支持滚轮缩放、拖动和还原；局部帧导航只显示当前帧附近缩略图并支持点击切换。
+验证命令：tsc --noEmit 通过；npm.cmd run build 通过；build-internal.ps1 提权后通过。
+绿色包验证：rembg / onnxruntime / PIL / numpy import 通过。
+产物：release/SequenceCutoutStudio-Internal-v0.4.0-internal.1-win-x64.zip，约 553.78 MB。
+稳定链路影响：不改变 portable Python / rembg_runner / postprocess 链路。
+下个阶段唯一主目标：Phase 4C 任务队列与批处理稳定化。
 ```
 
 ---
@@ -628,5 +650,5 @@ portable Python 运行时验证
 推荐路线：
 
 ```text
-进入时间轴、任务队列、导出和缓存
+进入任务队列、导出和缓存
 ```

@@ -58,7 +58,7 @@ type ProcessConfig = {
   previewBackground: 'checker' | 'black' | 'white' | 'gray' | 'custom'
   customPreviewBackgroundPath: string
   lastFrameName: string
-  activePreviewTab: 'original' | 'raw' | 'soft'
+  activePreviewTab: 'original' | 'raw' | 'soft' | 'compare'
 }
 
 type ProjectFile = {
@@ -224,8 +224,8 @@ function createWindow(): void {
   win = new BrowserWindow({
     width: 1280,
     height: 820,
-    minWidth: 1100,
-    minHeight: 720,
+    minWidth: 920,
+    minHeight: 640,
     show: false,
     title: 'Sequence Cutout Studio',
     backgroundColor: '#f7f9fc',

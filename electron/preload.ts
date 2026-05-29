@@ -30,7 +30,7 @@ contextBridge.exposeInMainWorld('cutoutAPI', {
       previewBackground: 'checker' | 'black' | 'white' | 'gray' | 'custom'
       customPreviewBackgroundPath: string
       lastFrameName: string
-      activePreviewTab: 'original' | 'raw' | 'soft'
+      activePreviewTab: 'original' | 'raw' | 'soft' | 'compare'
     }
   }) => ipcRenderer.invoke('project:create', args),
 
@@ -58,7 +58,7 @@ contextBridge.exposeInMainWorld('cutoutAPI', {
       previewBackground: 'checker' | 'black' | 'white' | 'gray' | 'custom'
       customPreviewBackgroundPath: string
       lastFrameName: string
-      activePreviewTab: 'original' | 'raw' | 'soft'
+      activePreviewTab: 'original' | 'raw' | 'soft' | 'compare'
     }
   }) => ipcRenderer.invoke('project:save', args),
 
@@ -133,7 +133,7 @@ contextBridge.exposeInMainWorld('cutoutAPI', {
       previewBackground: 'checker' | 'black' | 'white' | 'gray' | 'custom'
       customPreviewBackground: string
       lastFrameName: string
-      activePreviewTab: 'original' | 'raw' | 'soft'
+      activePreviewTab: 'original' | 'raw' | 'soft' | 'compare'
     }
   }) => ipcRenderer.invoke('config:save-process-config', args),
 
