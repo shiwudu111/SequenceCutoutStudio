@@ -333,13 +333,13 @@ button {
 }
 
 .preset-row {
-  display: flex;
+  display: grid;
+  grid-template-columns: repeat(4, minmax(60px, 1fr));
   gap: 10px;
   margin-bottom: 16px;
 }
 
 .preset {
-  flex: 1;
   min-width: 0;
   border: 1px solid #d8e0ec;
   border-radius: 14px;
@@ -388,7 +388,8 @@ button {
 .segmented {
   display: flex;
   flex-wrap: wrap;
-  overflow: hidden;
+  gap: 2px;
+  overflow: visible;
   border-radius: 12px;
   background: #eef2f7;
 }
@@ -398,6 +399,7 @@ button {
   padding: 8px 12px;
   color: #68778c;
   background: transparent;
+  white-space: nowrap;
 }
 
 .segmented button.active {
@@ -461,6 +463,7 @@ button {
 
 .preview-tabs {
   display: flex;
+  flex-wrap: wrap;
   gap: 8px;
   margin-top: 14px;
 }
@@ -613,20 +616,22 @@ button:disabled {
   color: #3a4960;
 }
 
-/* Phase 1 layout v2: three-column workstation */
+/* Adaptive workstation layout: wide = 3 columns, standard = 2 columns, compact = 1 column. */
 .workspace {
   min-height: 100vh;
+  min-width: 0;
   overflow: auto;
 }
 
 .content-grid {
-  height: calc(100vh - 118px);
-  min-height: 720px;
   display: grid;
-  grid-template-columns: minmax(260px, 0.8fr) minmax(260px, 0.8fr) minmax(360px, 1.4fr);
-  grid-template-rows: minmax(430px, 1fr) minmax(240px, 0.42fr);
+  grid-template-areas:
+    "input params preview"
+    "input params logs";
+  grid-template-columns: minmax(300px, 0.85fr) minmax(300px, 0.85fr) minmax(460px, 1.45fr);
+  grid-template-rows: auto minmax(250px, auto);
   gap: 18px;
-  align-items: stretch;
+  align-items: start;
 }
 
 .content-grid > .panel {
@@ -635,26 +640,23 @@ button:disabled {
 
 /* 左栏：输入素材，跨两行 */
 .content-grid > section:nth-child(1) {
-  grid-column: 1;
-  grid-row: 1 / span 2;
+  grid-area: input;
   overflow: auto;
 }
 
 /* 中栏：处理参数，跨两行 */
 .content-grid > section:nth-child(2) {
-  grid-column: 2;
-  grid-row: 1 / span 2;
+  grid-area: params;
   overflow: auto;
 }
 
 /* 右上：预览检查 */
 .preview-panel {
-  grid-column: 3;
-  grid-row: 1;
+  grid-area: preview;
   display: flex;
   flex-direction: column;
   min-height: 0;
-  overflow: auto;
+  overflow: visible;
 }
 
 .preview-panel .panel-header {
@@ -663,9 +665,10 @@ button:disabled {
 
 .preview-stage {
   flex: 0 0 auto;
-  height: clamp(260px, 34vh, 460px);
-  min-height: 240px;
-  aspect-ratio: auto;
+  width: 100%;
+  height: auto;
+  min-height: 260px;
+  aspect-ratio: 16 / 9;
 }
 
 .preview-tabs {
@@ -674,11 +677,10 @@ button:disabled {
 
 /* 右下：处理日志 */
 .log-panel {
-  grid-column: 3;
-  grid-row: 2;
+  grid-area: logs;
   display: flex;
   flex-direction: column;
-  min-height: 240px;
+  min-height: 250px;
 }
 
 .log-panel .panel-header {
@@ -688,7 +690,7 @@ button:disabled {
 .logs {
   flex: 1;
   max-height: none;
-  min-height: 150px;
+  min-height: 170px;
   overflow: auto;
 }
 
@@ -708,6 +710,8 @@ button:disabled {
 
 /* 让处理中按钮组在中栏里更舒服 */
 .button-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
   gap: 10px;
 }
 
@@ -717,10 +721,6 @@ button:disabled {
 }
 
 /* 小屏兜底：窗口太窄时允许横向滚动 */
-.workspace {
-  min-width: 0;
-}
-
 .drop-zone.drag-active {
   border-color: #536dfe;
   background: #eef2ff;
@@ -733,7 +733,7 @@ button:disabled {
 
 .frame-controls {
   display: grid;
-  grid-template-columns: auto auto minmax(180px, 1fr) auto auto;
+  grid-template-columns: auto auto minmax(140px, 1fr) auto auto;
   gap: 8px;
   align-items: center;
   margin-top: 12px;
@@ -792,7 +792,7 @@ button:disabled {
 }
 .playback-controls {
   display: grid;
-  grid-template-columns: auto 150px minmax(180px, 1fr);
+  grid-template-columns: auto minmax(120px, 150px) minmax(160px, 1fr);
   gap: 8px;
   align-items: center;
   margin-top: 10px;
@@ -959,9 +959,9 @@ button:disabled {
   cursor: grabbing;
 }
 
-@media (max-width: 1240px) {
+@media (max-width: 1680px) {
   .app-shell {
-    grid-template-columns: 240px 1fr;
+    grid-template-columns: 260px 1fr;
   }
 
   .sidebar {
@@ -973,25 +973,72 @@ button:disabled {
   }
 
   .content-grid {
-    height: auto;
-    grid-template-columns: minmax(0, 1fr);
-    grid-template-rows: auto;
+    grid-template-areas:
+      "input preview"
+      "params logs";
+    grid-template-columns: minmax(320px, 0.9fr) minmax(440px, 1.1fr);
+    grid-template-rows: auto auto;
   }
 
   .content-grid > section:nth-child(1),
   .content-grid > section:nth-child(2),
   .preview-panel,
   .log-panel {
-    grid-column: 1;
+    grid-column: auto;
     grid-row: auto;
   }
 
-  .preview-stage {
-    min-height: 360px;
+  .content-grid > section:nth-child(1) {
+    grid-area: input;
+  }
+
+  .content-grid > section:nth-child(2) {
+    grid-area: params;
+  }
+
+  .preview-panel {
+    grid-area: preview;
   }
 
   .log-panel {
-    min-height: 260px;
+    grid-area: logs;
+    min-height: 300px;
+  }
+}
+
+@media (max-width: 1180px) {
+  .app-shell {
+    grid-template-columns: 240px 1fr;
+  }
+
+  .workspace {
+    padding: 18px;
+  }
+
+  .content-grid {
+    grid-template-areas:
+      "input"
+      "params"
+      "preview"
+      "logs";
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: auto;
+  }
+
+  .content-grid > section:nth-child(1) {
+    grid-area: input;
+  }
+
+  .content-grid > section:nth-child(2) {
+    grid-area: params;
+  }
+
+  .preview-panel {
+    grid-area: preview;
+  }
+
+  .log-panel {
+    grid-area: logs;
   }
 }
 
@@ -1009,13 +1056,8 @@ button:disabled {
   }
 
   .preview-stage {
-    min-height: 300px;
+    min-height: 220px;
     aspect-ratio: 16 / 9;
-  }
-
-  .preview-stage {
-    height: clamp(280px, 52vh, 460px);
-    min-height: 260px;
   }
 }
 .compare-panel {
