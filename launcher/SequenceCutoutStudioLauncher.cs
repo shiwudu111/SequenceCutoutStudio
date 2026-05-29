@@ -4,6 +4,7 @@ using System.Drawing;
 using System.IO;
 using System.Reflection;
 using System.Runtime.InteropServices;
+using System.Text;
 using System.Windows.Forms;
 
 namespace SequenceCutoutStudioLauncher
@@ -16,15 +17,21 @@ namespace SequenceCutoutStudioLauncher
         private static Form splashForm;
         private static Label statusLabel;
         private static int statusIndex = 0;
+        private static bool mainWindowReady = false;
+        private static bool launchErrorShown = false;
+        private static DateTime launchStartedAt;
+        private static string lastStatusMessage = "";
 
         private static readonly string[] StatusMessages = new string[]
         {
             "正在初始化运行环境...",
             "正在加载 Sequence Cutout Studio...",
             "正在准备本地处理工具...",
-            "正在检查 FFmpeg / Python / rembg...",
+            "正在检查视频处理和自动去背景工具...",
             "首次启动可能需要 30–60 秒，请不要重复双击。"
         };
+
+        private const int StartupTimeoutSeconds = 120;
 
         [DllImport("user32.dll")]
         private static extern bool IsWindow(IntPtr hWnd);
@@ -69,19 +76,29 @@ namespace SequenceCutoutStudioLauncher
         }
 
         private static string readyFilePath;
+        private static string statusFilePath;
 
         private static void StartMainApp(string appExe)
         {
             try
             {
+                string launchId = Guid.NewGuid().ToString("N");
                 readyFilePath = Path.Combine(
                     Path.GetTempPath(),
-                    "SequenceCutoutStudio-" + Guid.NewGuid().ToString("N") + ".ready"
+                    "SequenceCutoutStudio-" + launchId + ".ready"
+                );
+                statusFilePath = Path.Combine(
+                    Path.GetTempPath(),
+                    "SequenceCutoutStudio-" + launchId + ".status"
                 );
 
                 if (File.Exists(readyFilePath))
                 {
                     File.Delete(readyFilePath);
+                }
+                if (File.Exists(statusFilePath))
+                {
+                    File.Delete(statusFilePath);
                 }
 
                 appProcess = new Process();
@@ -89,13 +106,23 @@ namespace SequenceCutoutStudioLauncher
                 appProcess.StartInfo.WorkingDirectory = Path.GetDirectoryName(appExe);
                 appProcess.StartInfo.UseShellExecute = false;
                 appProcess.StartInfo.EnvironmentVariables["SCS_LAUNCHER_READY_FILE"] = readyFilePath;
+                appProcess.StartInfo.EnvironmentVariables["SCS_LAUNCHER_STATUS_FILE"] = statusFilePath;
                 appProcess.EnableRaisingEvents = true;
 
                 appProcess.Exited += delegate
                 {
+                    if (!mainWindowReady && !launchErrorShown)
+                    {
+                        ShowLaunchError(
+                            "主程序启动后提前退出。",
+                            "退出码：" + appProcess.ExitCode.ToString()
+                        );
+                    }
                     SafeCloseSplash();
                 };
 
+                launchStartedAt = DateTime.Now;
+                lastStatusMessage = StatusMessages[0];
                 appProcess.Start();
 
                 checkTimer = new Timer();
@@ -131,8 +158,31 @@ namespace SequenceCutoutStudioLauncher
                 return;
             }
 
+            if ((DateTime.Now - launchStartedAt).TotalSeconds > StartupTimeoutSeconds)
+            {
+                ShowLaunchError(
+                    "启动等待超时。",
+                    "最后状态：" + (string.IsNullOrEmpty(lastStatusMessage) ? "正在启动..." : lastStatusMessage)
+                );
+
+                try
+                {
+                    if (!appProcess.HasExited)
+                    {
+                        appProcess.Kill();
+                    }
+                }
+                catch
+                {
+                }
+
+                SafeCloseSplash();
+                return;
+            }
+
             if (!string.IsNullOrEmpty(readyFilePath) && File.Exists(readyFilePath))
             {
+                mainWindowReady = true;
                 appProcess.Refresh();
 
                 IntPtr mainWindowHandle = appProcess.MainWindowHandle;
@@ -289,7 +339,7 @@ namespace SequenceCutoutStudioLauncher
         private static void StartStatusTimer()
         {
             statusTimer = new Timer();
-            statusTimer.Interval = 1400;
+            statusTimer.Interval = 1000;
             statusTimer.Tick += delegate
             {
                 if (statusLabel == null || statusLabel.IsDisposed)
@@ -297,10 +347,60 @@ namespace SequenceCutoutStudioLauncher
                     return;
                 }
 
+                string statusFromApp = ReadStatusFile();
+                if (!string.IsNullOrEmpty(statusFromApp))
+                {
+                    lastStatusMessage = statusFromApp;
+                    statusLabel.Text = statusFromApp;
+                    return;
+                }
+
                 statusIndex = (statusIndex + 1) % StatusMessages.Length;
-                statusLabel.Text = StatusMessages[statusIndex];
+                lastStatusMessage = StatusMessages[statusIndex];
+                statusLabel.Text = lastStatusMessage;
             };
             statusTimer.Start();
+        }
+
+        private static string ReadStatusFile()
+        {
+            if (string.IsNullOrEmpty(statusFilePath) || !File.Exists(statusFilePath))
+            {
+                return "";
+            }
+
+            try
+            {
+                string text = File.ReadAllText(statusFilePath, Encoding.UTF8).Trim();
+                return text.Length > 80 ? text.Substring(0, 80) : text;
+            }
+            catch
+            {
+                return "";
+            }
+        }
+
+        private static void ShowLaunchError(string title, string detail)
+        {
+            if (splashForm != null && splashForm.InvokeRequired)
+            {
+                splashForm.BeginInvoke(new Action(delegate { ShowLaunchError(title, detail); }));
+                return;
+            }
+
+            if (launchErrorShown)
+            {
+                return;
+            }
+
+            launchErrorShown = true;
+
+            MessageBox.Show(
+                title + "\n\n" + detail + "\n\n请重新打开软件；如果问题重复出现，请把这个提示和内测版本号发给开发人员。",
+                "Sequence Cutout Studio 启动失败",
+                MessageBoxButtons.OK,
+                MessageBoxIcon.Error
+            );
         }
 
         private static void SafeCloseSplash()

@@ -140,6 +140,21 @@ function getAppInfo(): AppInfo {
   }
 }
 
+async function notifyLauncherStatus(message: string): Promise<void> {
+  const statusFile = process.env.SCS_LAUNCHER_STATUS_FILE
+
+  if (!statusFile) {
+    return
+  }
+
+  try {
+    await fs.mkdir(path.dirname(statusFile), { recursive: true })
+    await fs.writeFile(statusFile, message, 'utf8')
+  } catch {
+    // launcher status is best-effort only
+  }
+}
+
 async function notifyLauncherReady(): Promise<void> {
   const readyFile = process.env.SCS_LAUNCHER_READY_FILE
 
@@ -156,6 +171,8 @@ async function notifyLauncherReady(): Promise<void> {
 }
 
 function createWindow(): void {
+  void notifyLauncherStatus('正在加载工作台界面...')
+
   win = new BrowserWindow({
     width: 1280,
     height: 820,
@@ -172,6 +189,7 @@ function createWindow(): void {
   })
 
   win.once('ready-to-show', () => {
+    void notifyLauncherStatus('正在进入工作台...')
     void notifyLauncherReady()
 
     if (win && !win.isDestroyed()) {
@@ -181,6 +199,7 @@ function createWindow(): void {
   })
 
   win.webContents.once('did-fail-load', () => {
+    void notifyLauncherStatus('工作台加载失败，正在打开窗口...')
     void notifyLauncherReady()
 
     if (win && !win.isDestroyed()) {
@@ -193,8 +212,10 @@ function createWindow(): void {
   })
 
   if (VITE_DEV_SERVER_URL) {
+    void notifyLauncherStatus('正在连接开发预览服务...')
     win.loadURL(VITE_DEV_SERVER_URL)
   } else {
+    void notifyLauncherStatus('正在加载本地工作台...')
     win.loadFile(path.join(RENDERER_DIST, 'index.html'))
   }
 }
@@ -620,35 +641,35 @@ async function runSelfCheck(): Promise<SelfCheckResult> {
   const modelFile = path.join(runtimePaths.modelDir, 'isnet-general-use.onnx')
 
   const items: SelfCheckItem[] = [
-    await checkFileExists('ffmpeg', 'FFmpeg', runtimePaths.ffmpegExe),
-    await checkFileExists('python', 'Python', runtimePaths.pythonExe),
-    await checkFileExists('rembg-runner', 'rembg_runner.py', runtimePaths.rembgRunnerScript),
-    await checkFileExists('model', 'isnet-general-use 模型', modelFile),
-    await checkFileExists('postprocess', 'postprocess 脚本', runtimePaths.postprocessScript),
-    await checkFileExists('preset', 'presets/default.json', runtimePaths.presetFile),
+    await checkFileExists('ffmpeg', '视频处理工具', runtimePaths.ffmpegExe),
+    await checkFileExists('python', '本地运行环境', runtimePaths.pythonExe),
+    await checkFileExists('rembg-runner', '自动去背景工具', runtimePaths.rembgRunnerScript),
+    await checkFileExists('model', '自动去背景模型', modelFile),
+    await checkFileExists('postprocess', '修边工具', runtimePaths.postprocessScript),
+    await checkFileExists('preset', '默认处理参数', runtimePaths.presetFile),
     await checkWritableDir('logs', 'logs 目录', runtimePaths.logsDir),
     await checkWritableDir('projects', 'projects 目录', runtimePaths.projectsDir)
   ]
 
   items.push(
-    await checkCommandRuns('python-version', 'Python run', runtimePaths.pythonExe, ['--version'], runtimePaths),
+    await checkCommandRuns('python-version', '运行环境启动', runtimePaths.pythonExe, ['--version'], runtimePaths),
     await checkCommandRuns(
       'python-rembg-import',
-      'rembg import',
+      '自动去背景加载',
       runtimePaths.pythonExe,
       ['-c', "import rembg; print('rembg ok')"],
       runtimePaths
     ),
     await checkCommandRuns(
       'python-onnxruntime-import',
-      'onnxruntime import',
+      '处理引擎加载',
       runtimePaths.pythonExe,
       ['-c', "import onnxruntime; print('onnxruntime ok')"],
       runtimePaths
     ),
     await checkCommandRuns(
       'python-postprocess-deps-import',
-      'postprocess deps import',
+      '修边依赖加载',
       runtimePaths.pythonExe,
       ['-c', "import PIL, numpy; print('postprocess deps ok')"],
       runtimePaths
@@ -1309,4 +1330,7 @@ app.on('activate', () => {
 
 app.disableHardwareAcceleration()
 
-app.whenReady().then(createWindow)
+app.whenReady().then(() => {
+  void notifyLauncherStatus('正在准备本地处理工具...')
+  createWindow()
+})

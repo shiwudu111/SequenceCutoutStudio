@@ -2,7 +2,7 @@
 
 版本定位：第一版内测绿色包已通过，进入发布流程固化与下一轮功能开发准备
 
-当前阶段：Phase 3D-5 版本号与发布规范已完成，下一阶段进入 Phase 3D-4
+当前阶段：Phase 3D-4 启动体验与真实自检增强已完成，下一阶段进入 Phase 4A
 
 基线日期：2026-05-28
 
@@ -128,7 +128,7 @@ Phase 3D-2：Launcher 内测绿色版收口        已完成
 Phase 3D-3：自动化构建                     已完成基础闭环
 Phase 3D-3B：稳定基线归档与构建文档        已完成
 Phase 3D-5：版本号与发布规范                已完成
-Phase 3D-4：启动体验与真实自检增强          下一阶段
+Phase 3D-4：启动体验与真实自检增强          已完成
 Phase 4A：工程系统 Project System
 Phase 4B：序列帧时间轴与缩略图
 Phase 4C：任务队列与批处理稳定化
@@ -244,23 +244,23 @@ AGENTS.md
 
 # Phase 3D-4：启动体验与真实自检增强
 
-状态：下一阶段。
+状态：已完成。
 
 目标：让启动失败、运行时缺失、工具链异常时，用户能看到清楚的人话提示。
 
 需要完成：
 
 ```text
-[ ] launcher 启动失败错误提示
-[ ] launcher 启动超时提示
-[ ] Electron 写启动阶段状态文件
-[ ] launcher 显示真实启动阶段
-[ ] 启动自检改为真实运行检查
-[ ] 检查 ffmpeg.exe
-[ ] 检查 python.exe
-[ ] 检查 rembg_runner.py
-[ ] 检查模型文件
-[ ] 检查 postprocess 脚本
+[x] launcher 启动失败错误提示
+[x] launcher 启动超时提示
+[x] Electron 写启动阶段状态文件
+[x] launcher 显示真实启动阶段
+[x] 启动自检改为真实运行检查
+[x] 检查 ffmpeg.exe
+[x] 检查 python.exe
+[x] 检查 rembg_runner.py
+[x] 检查模型文件
+[x] 检查 postprocess 脚本
 ```
 
 用户可见文案应保持简单：
@@ -273,6 +273,18 @@ AGENTS.md
 ```
 
 不要在普通界面暴露 `onnxruntime`、`site-packages`、`PYTHONPATH`、`.venv` 这类技术细节。
+
+阶段回顾：
+
+```text
+目标是否完成：已完成。
+实际完成：launcher 读取 Electron 启动状态文件，增加 120 秒启动超时提示，增加主程序提前退出提示；Electron 写入启动阶段状态；启动自检项目改为更偏用户理解的标签。
+验证命令：tsc --noEmit 通过；npm.cmd run build 通过；build-internal.ps1 提权后通过。
+绿色包验证：rembg / onnxruntime / PIL / numpy import 通过。
+产物：release/SequenceCutoutStudio-Internal-v0.4.0-internal.1-win-x64.zip，约 553.78 MB。
+稳定链路影响：不改变 portable Python / rembg_runner / postprocess 链路。
+下个阶段唯一主目标：Phase 4A 工程系统 Project System。
+```
 
 ---
 
@@ -526,10 +538,10 @@ Custom：自定义
 ### 下一个小版本：0.4.0-internal.2
 
 ```text
-[ ] 启动阶段状态文件
-[ ] launcher 显示真实启动状态
-[ ] 启动失败 / 超时提示
-[ ] 启动自检升级为真实运行检查
+[x] 启动阶段状态文件
+[x] launcher 显示真实启动状态
+[x] 启动失败 / 超时提示
+[x] 启动自检升级为真实运行检查
 ```
 
 目标：减少测试人员反馈里的“打不开”“卡住了”“没反应”这类模糊问题。
@@ -604,7 +616,5 @@ portable Python 运行时验证
 推荐路线：
 
 ```text
-增强启动自检和错误提示
-↓
-再进入工程系统、时间轴、任务队列、导出和缓存
+进入工程系统、时间轴、任务队列、导出和缓存
 ```
