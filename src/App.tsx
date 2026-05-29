@@ -104,7 +104,6 @@ function App(): JSX.Element {
   const [lightboxOffset, setLightboxOffset] = useState({ x: 0, y: 0 })
   const [isDraggingLightbox, setIsDraggingLightbox] = useState(false)
   const [lightboxDragStart, setLightboxDragStart] = useState({ x: 0, y: 0 })
-  const [timelineThumbnails, setTimelineThumbnails] = useState<Record<string, string>>({})
   const previewCacheRef = useRef<Map<string, string>>(new Map())
   const lightboxImageRef = useRef<HTMLImageElement | null>(null)
   const [logs, setLogs] = useState<string[]>([
@@ -664,66 +663,18 @@ function App(): JSX.Element {
     )
   }
 
-  const getLocalFrameIndexes = (): number[] => {
+  const getRulerTickIndexes = (): number[] => {
     if (frameFiles.length === 0) {
       return []
     }
 
-    const visibleCount = 11
-    const half = Math.floor(visibleCount / 2)
-    const maxStart = Math.max(0, frameFiles.length - visibleCount)
-    const start = Math.min(Math.max(0, currentFrameIndex - half), maxStart)
-    const end = Math.min(frameFiles.length, start + visibleCount)
+    const tickCount = Math.min(9, frameFiles.length)
+    const lastIndex = frameFiles.length - 1
 
-    return Array.from({ length: end - start }, (_value, offset) => start + offset)
+    return Array.from({ length: tickCount }, (_value, tickIndex) =>
+      Math.round((lastIndex * tickIndex) / Math.max(1, tickCount - 1))
+    ).filter((index, position, indexes) => indexes.indexOf(index) === position)
   }
-
-  useEffect(() => {
-    if (!selectedFolder || frameFiles.length === 0) {
-      setTimelineThumbnails({})
-      return
-    }
-
-    let canceled = false
-
-    const loadThumbnails = async (): Promise<void> => {
-      const indexes = getLocalFrameIndexes()
-      const entries = await Promise.all(
-        indexes.map(async (frameIndex) => {
-          const fileName = frameFiles[frameIndex]
-          const cacheKey = `thumb:${selectedFolder}:${fileName}`
-          const cached = previewCacheRef.current.get(cacheKey)
-
-          if (cached) {
-            return [fileName, cached] as const
-          }
-
-          const result = await window.cutoutAPI.readImageAsDataUrl(
-            joinWindowsPath(selectedFolder, fileName)
-          )
-
-          if (!result.ok) {
-            return [fileName, ''] as const
-          }
-
-          previewCacheRef.current.set(cacheKey, result.dataUrl)
-          return [fileName, result.dataUrl] as const
-        })
-      )
-
-      if (!canceled) {
-        setTimelineThumbnails(
-          Object.fromEntries(entries.filter((entry) => Boolean(entry[1])))
-        )
-      }
-    }
-
-    void loadThumbnails()
-
-    return () => {
-      canceled = true
-    }
-  }, [selectedFolder, frameFiles, currentFrameIndex])
 
   const handleOpenLightbox = (): void => {
     if (!displayPreviewImage) {
@@ -1197,7 +1148,7 @@ function App(): JSX.Element {
     (activePreviewTab === 'compare'
       ? previewImages.soft || previewImages.raw
       : previewImages[activePreviewTab])
-  const localFrameIndexes = getLocalFrameIndexes()
+  const rulerTickIndexes = getRulerTickIndexes()
   const hasCompareImages = Boolean(previewImages.raw && previewImages.soft)
 
   const selfCheckPassedCount =
@@ -1632,36 +1583,42 @@ function App(): JSX.Element {
               </button>
             </div>
 
-            <div className="local-timeline">
-              <div className="local-timeline-header">
-                <strong>局部帧导航</strong>
+            <div className="frame-ruler">
+              <div className="frame-ruler-header">
+                <strong>帧标尺</strong>
                 <span>
                   {frameFiles.length > 0
-                    ? `显示当前帧附近 ${localFrameIndexes.length} / ${frameFiles.length} 帧`
+                    ? `${currentFrameIndex + 1} / ${frameFiles.length} · ${previewFrameName}`
                     : '等待序列帧'}
                 </span>
               </div>
-              <div className="local-timeline-strip">
-                {localFrameIndexes.length > 0 ? (
-                  localFrameIndexes.map((frameIndex) => {
-                    const fileName = frameFiles[frameIndex]
-                    const thumbnail = timelineThumbnails[fileName]
-
-                    return (
-                      <button
-                        key={`${fileName}-${frameIndex}`}
-                        className={frameIndex === currentFrameIndex ? 'timeline-thumb active' : 'timeline-thumb'}
-                        onClick={() => {
-                          void loadFrameByIndex(frameIndex)
-                        }}
-                      >
-                        {thumbnail ? <img src={thumbnail} alt={fileName} /> : <span>{frameIndex + 1}</span>}
-                        <small>{frameIndex + 1}</small>
-                      </button>
-                    )
-                  })
+              <input
+                className="frame-ruler-input"
+                type="range"
+                min="0"
+                max={Math.max(0, frameFiles.length - 1)}
+                value={currentFrameIndex}
+                disabled={frameFiles.length === 0}
+                onChange={(event) => {
+                  void loadFrameByIndex(Number(event.target.value))
+                }}
+                aria-label="序列帧标尺"
+              />
+              <div className="frame-ruler-ticks">
+                {rulerTickIndexes.length > 0 ? (
+                  rulerTickIndexes.map((frameIndex) => (
+                    <button
+                      key={frameIndex}
+                      className={frameIndex === currentFrameIndex ? 'active' : ''}
+                      onClick={() => {
+                        void loadFrameByIndex(frameIndex)
+                      }}
+                    >
+                      {frameIndex + 1}
+                    </button>
+                  ))
                 ) : (
-                  <div className="timeline-empty">选择或打开工程后显示当前帧附近缩略图</div>
+                  <span>选择或打开工程后可拖动游标快速定位帧</span>
                 )}
               </div>
             </div>
