@@ -77,18 +77,38 @@ function Get-DibBytes {
     return ,$bytes
 }
 
+function Get-PngBytes {
+    param(
+        [System.Drawing.Bitmap]$Bitmap
+    )
+
+    $stream = New-Object System.IO.MemoryStream
+    try {
+        $Bitmap.Save($stream, [System.Drawing.Imaging.ImageFormat]::Png)
+        return ,$stream.ToArray()
+    }
+    finally {
+        $stream.Dispose()
+    }
+}
+
 function Write-Ico {
     param(
         [System.Drawing.Image]$SourceImage,
         [string]$Path
     )
 
-    $sizes = @(16, 24, 32, 40, 48, 64, 96, 128, 256)
+    $sizes = @(256, 128, 96, 64, 48, 40, 32, 24, 16)
     $images = @()
 
     foreach ($size in $sizes) {
         $bitmap = New-ResizedBitmap -SourceImage $SourceImage -Size $size
-        $bytes = Get-DibBytes -Bitmap $bitmap
+        $bytes = if ($size -ge 128) {
+            Get-PngBytes -Bitmap $bitmap
+        }
+        else {
+            Get-DibBytes -Bitmap $bitmap
+        }
         $images += [PSCustomObject]@{
             Size = $size
             Bytes = $bytes

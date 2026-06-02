@@ -1318,10 +1318,21 @@ ipcMain.handle('dialog:select-frame-folder', async () => {
 })
 
 ipcMain.handle('project:create', async (_event, args: { config: ProcessConfig }) => {
-  const result = await dialog.showOpenDialog({
-    title: '选择工程保存目录',
-    properties: ['openDirectory', 'createDirectory']
-  })
+  let result: Electron.OpenDialogReturnValue
+
+  try {
+    result = await dialog.showOpenDialog({
+      title: '选择工程保存目录',
+      properties: ['openDirectory', 'createDirectory']
+    })
+  } catch (error) {
+    return {
+      ok: false,
+      message: error instanceof Error ? error.message : String(error),
+      projectDir: '',
+      projectPath: ''
+    }
+  }
 
   if (result.canceled || result.filePaths.length === 0) {
     return {
@@ -1334,13 +1345,16 @@ ipcMain.handle('project:create', async (_event, args: { config: ProcessConfig })
   }
 
   try {
-    return await saveProject(result.filePaths[0], args.config)
+    const projectDir = path.resolve(result.filePaths[0])
+    await fs.mkdir(projectDir, { recursive: true })
+    return await saveProject(projectDir, args.config)
   } catch (error) {
+    const projectDir = result.filePaths[0] ? path.resolve(result.filePaths[0]) : ''
     return {
       ok: false,
       message: error instanceof Error ? error.message : String(error),
-      projectDir: result.filePaths[0],
-      projectPath: getProjectPath(result.filePaths[0])
+      projectDir,
+      projectPath: projectDir ? getProjectPath(projectDir) : ''
     }
   }
 })

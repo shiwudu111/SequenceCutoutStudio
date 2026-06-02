@@ -62,6 +62,28 @@ function Wait-ForPath {
     throw "Timed out waiting for path: $Path"
 }
 
+function Move-WithRetry {
+    param(
+        [string]$Source,
+        [string]$Destination,
+        [int]$Attempts = 10
+    )
+
+    for ($attempt = 1; $attempt -le $Attempts; $attempt++) {
+        try {
+            Move-Item -LiteralPath $Source -Destination $Destination -Force
+            return
+        }
+        catch {
+            if ($attempt -eq $Attempts) {
+                throw
+            }
+
+            Start-Sleep -Milliseconds 500
+        }
+    }
+}
+
 function Invoke-CommandChecked {
     param(
         [string]$FilePath,
@@ -285,7 +307,24 @@ $resourceHackerArgs = @(
 )
 Invoke-CommandChecked -FilePath $resourceHacker -Arguments $resourceHackerArgs -WorkingDirectory $root
 Wait-ForPath -Path $resourceHackerOutput -TimeoutSeconds 30
-Move-Item -LiteralPath $resourceHackerOutput -Destination $launcherOutput -Force
+Move-WithRetry -Source $resourceHackerOutput -Destination $launcherOutput
+
+Remove-IfExists -Path $resourceHackerOutput
+$resourceHackerArgs = @(
+    "-open",
+    $launcherOutput,
+    "-save",
+    $resourceHackerOutput,
+    "-action",
+    "addoverwrite",
+    "-res",
+    $iconPath,
+    "-mask",
+    "ICONGROUP,32512,0"
+)
+Invoke-CommandChecked -FilePath $resourceHacker -Arguments $resourceHackerArgs -WorkingDirectory $root
+Wait-ForPath -Path $resourceHackerOutput -TimeoutSeconds 30
+Move-WithRetry -Source $resourceHackerOutput -Destination $launcherOutput
 
 Write-Step "Validating portable runtime layout"
 $finalRoot = Join-Path $internalAppDir "resources\portable-root"

@@ -24,6 +24,28 @@ type CompareItem = {
   outputFile?: string
   dataUrl?: string
 }
+
+type BatchTaskStatus = 'running' | 'done' | 'error'
+
+type BatchTask = {
+  id: string
+  status: BatchTaskStatus
+  mode: 'batch' | 'edge'
+  inputDir: string
+  preset: Preset
+  alphaLow: number
+  shrink: number
+  totalCount: number
+  rawCount: number
+  outputCount: number
+  failedCount: number
+  currentStage: string
+  message: string
+  outputDir: string
+  startedAt: number
+  endedAt?: number
+}
+
 const EDGE_PRESET_PARAMS: Record<Exclude<Preset, 'Custom'>, EdgePresetParams> = {
   C: {
     label: 'C 轻柔',
@@ -82,16 +104,12 @@ function App(): JSX.Element {
     soft: ''
   })
   const [isProcessing, setIsProcessing] = useState(false)
+  const [batchTask, setBatchTask] = useState<BatchTask | null>(null)
   const [isTestingSingle, setIsTestingSingle] = useState(false)
   const [isComparing, setIsComparing] = useState(false)
   const [compareItems, setCompareItems] = useState<CompareItem[]>([])
   const [configPath, setConfigPath] = useState('')
-  const [configMessage, setConfigMessage] = useState('尚未保存配置')
-  const [projectDir, setProjectDir] = useState('')
-  const [projectPath, setProjectPath] = useState('')
-  const [projectName, setProjectName] = useState('尚未打开工程')
-  const [projectMessage, setProjectMessage] = useState('新建或打开工程后，可保存当前素材和参数。')
-  const [recentProjects, setRecentProjects] = useState<RecentProject[]>([])
+  const [configMessage, setConfigMessage] = useState('尚未保存参数')
   const [selfCheckResult, setSelfCheckResult] = useState<SelfCheckResult | null>(null)
   const [isSelfChecking, setIsSelfChecking] = useState(false)
   const [activeComparePreset, setActiveComparePreset] = useState<Preset | null>(null)
@@ -108,11 +126,43 @@ function App(): JSX.Element {
   const lightboxImageRef = useRef<HTMLImageElement | null>(null)
   const [logs, setLogs] = useState<string[]>([
     'Sequence Cutout Studio 已启动。',
-    '当前阶段：Phase 4B - 预览体验与帧导航。'
+    '当前阶段：Phase 4C - 任务队列与批处理稳定化。'
   ])
 
   const appendLog = (line: string): void => {
     setLogs((prev) => [...prev, line])
+  }
+
+  const formatTaskDuration = (task: BatchTask): string => {
+    const endedAt = task.endedAt ?? Date.now()
+    const seconds = Math.max(0, Math.round((endedAt - task.startedAt) / 1000))
+    if (seconds < 60) {
+      return `${seconds} 秒`
+    }
+
+    const minutes = Math.floor(seconds / 60)
+    const restSeconds = seconds % 60
+    return `${minutes} 分 ${restSeconds} 秒`
+  }
+
+  const getBatchTaskTitle = (task: BatchTask): string => {
+    if (task.mode === 'edge') {
+      return '只重跑边缘'
+    }
+
+    return '批量处理'
+  }
+
+  const getBatchTaskProgressWidth = (task: BatchTask): string => {
+    if (task.status === 'running' && task.outputCount <= 0) {
+      return '30%'
+    }
+
+    if (task.totalCount <= 0) {
+      return task.status === 'done' ? '100%' : '0%'
+    }
+
+    return `${Math.min(100, Math.round((task.outputCount / task.totalCount) * 100))}%`
   }
 
   useEffect(() => {
@@ -120,15 +170,6 @@ function App(): JSX.Element {
       setAppVersion(info.version)
       appendLog(`当前版本：v${info.version}`)
     })
-  }, [])
-
-  const refreshRecentProjects = async (): Promise<void> => {
-    const recent = await window.cutoutAPI.listRecentProjects()
-    setRecentProjects(recent)
-  }
-
-  useEffect(() => {
-    void refreshRecentProjects()
   }, [])
 
   const joinWindowsPath = (folderPath: string, fileName: string): string => {
@@ -334,7 +375,7 @@ function App(): JSX.Element {
     setSelectedFolder(folderPath)
     setInputPath(folderPath)
     setConfigPath('')
-    setConfigMessage('尚未保存配置')
+    setConfigMessage('尚未保存参数')
     setAssetType('PNG 序列帧')
     setFrameCount(String(result.pngCount))
     setFrameSize(`${result.width} × ${result.height}`)
@@ -446,7 +487,7 @@ function App(): JSX.Element {
     setPreviewFrameName('')
     setActivePreviewTab('original')
     setConfigPath('')
-    setConfigMessage('尚未保存配置')
+    setConfigMessage('尚未保存参数')
     setPreviewImages({
       original: '',
       raw: '',
@@ -659,7 +700,7 @@ function App(): JSX.Element {
     }
 
     appendLog(
-      `已应用配置：${nextPreset} / AlphaLow=${nextAlphaLow} / Shrink=${nextShrink} / 播放FPS=${nextPlaybackFps} / 背景=${nextPreviewBackground}`
+      `已应用参数：${nextPreset} / AlphaLow=${nextAlphaLow} / Shrink=${nextShrink} / 播放FPS=${nextPlaybackFps} / 背景=${nextPreviewBackground}`
     )
   }
 
@@ -727,111 +768,6 @@ function App(): JSX.Element {
     setLightboxOffset({ x: 0, y: 0 })
   }
 
-  const applyProjectResult = async (result: ProjectResult): Promise<void> => {
-    if (!result.ok || !result.project) {
-      if (!result.canceled) {
-        appendLog(`工程操作失败：${result.message ?? '未知错误'}`)
-        setProjectMessage(result.message ?? '工程操作失败')
-      }
-      return
-    }
-
-    const config = result.project.config
-
-    setProjectDir(result.projectDir)
-    setProjectPath(result.projectPath)
-    setProjectName(result.project.name)
-    setProjectMessage(`工程已打开：${result.project.name}`)
-    setSelectedVideo(config.selectedVideo || '')
-
-    if (config.selectedFolder) {
-      appendLog(`正在恢复工程序列帧：${config.selectedFolder}`)
-      const scanResult = await window.cutoutAPI.scanFrameFolder(config.selectedFolder)
-      await applyFrameFolderScanResult(config.selectedFolder, scanResult)
-      await applyProcessConfig(
-        config,
-        scanResult.files ?? [],
-        config.selectedFolder,
-        config.rawFolder || '',
-        config.softFolder || ''
-      )
-    } else if (config.selectedVideo) {
-      applySelectedVideo(config.selectedVideo)
-      await applyProcessConfig(config)
-    } else {
-      await applyProcessConfig(config)
-    }
-
-    setConfigMessage('工程参数已恢复')
-    appendLog(`工程已打开：${result.projectPath}`)
-    await refreshRecentProjects()
-  }
-
-  const handleCreateProject = async (): Promise<void> => {
-    appendLog('正在新建工程...')
-    const result = await window.cutoutAPI.createProject({ config: buildProcessConfig() })
-
-    if (!result.ok || !result.project) {
-      if (!result.canceled) {
-        appendLog(`新建工程失败：${result.message ?? '未知错误'}`)
-        setProjectMessage(result.message ?? '新建工程失败')
-      } else {
-        appendLog('已取消新建工程。')
-      }
-      return
-    }
-
-    setProjectDir(result.projectDir)
-    setProjectPath(result.projectPath)
-    setProjectName(result.project.name)
-    setProjectMessage(`工程已创建：${result.project.name}`)
-    appendLog(`工程已创建：${result.projectPath}`)
-    await refreshRecentProjects()
-  }
-
-  const handleSaveProject = async (): Promise<void> => {
-    if (!projectDir) {
-      await handleCreateProject()
-      return
-    }
-
-    appendLog('正在保存工程...')
-    const result = await window.cutoutAPI.saveProject({
-      projectDir,
-      config: buildProcessConfig()
-    })
-
-    if (!result.ok || !result.project) {
-      appendLog(`工程保存失败：${result.message ?? '未知错误'}`)
-      setProjectMessage(result.message ?? '工程保存失败')
-      return
-    }
-
-    setProjectPath(result.projectPath)
-    setProjectName(result.project.name)
-    setProjectMessage(`工程已保存：${result.project.name}`)
-    appendLog(`工程已保存：${result.projectPath}`)
-    await refreshRecentProjects()
-  }
-
-  const handleOpenProject = async (): Promise<void> => {
-    appendLog('正在打开工程...')
-    const result = await window.cutoutAPI.openProject()
-
-    if (result.canceled) {
-      appendLog('已取消打开工程。')
-      return
-    }
-
-    await applyProjectResult(result)
-  }
-
-  const handleOpenRecentProject = async (recent: RecentProject): Promise<void> => {
-    appendLog(`正在打开最近工程：${recent.name}`)
-    const result = await window.cutoutAPI.openRecentProject(recent.projectDir)
-    await applyProjectResult(result)
-  }
-
   const handleSaveProcessConfig = async (): Promise<void> => {
     if (!selectedFolder) {
       appendLog('请先选择序列帧文件夹，或先从视频切成序列帧。')
@@ -844,14 +780,14 @@ function App(): JSX.Element {
     })
 
     if (!result.ok) {
-      appendLog(`配置保存失败：${result.message ?? '未知错误'}`)
-      setConfigMessage(result.message ?? '配置保存失败')
+      appendLog(`参数保存失败：${result.message ?? '未知错误'}`)
+      setConfigMessage(result.message ?? '参数保存失败')
       return
     }
 
     setConfigPath(result.configPath)
-    setConfigMessage('配置已保存')
-    appendLog(`配置已保存：${result.configPath}`)
+    setConfigMessage('参数已保存')
+    appendLog(`参数已保存：${result.configPath}`)
   }
 
   const handleLoadProcessConfig = async (): Promise<void> => {
@@ -863,17 +799,17 @@ function App(): JSX.Element {
     const result = await window.cutoutAPI.loadProcessConfig(selectedFolder)
 
     if (!result.ok || !result.config) {
-      appendLog(`配置读取失败：${result.message ?? '未知错误'}`)
+      appendLog(`参数读取失败：${result.message ?? '未知错误'}`)
       setConfigPath(result.configPath)
-      setConfigMessage(result.message ?? '配置读取失败')
+      setConfigMessage(result.message ?? '参数读取失败')
       return
     }
 
     setConfigPath(result.configPath)
-    setConfigMessage('配置已读取')
+    setConfigMessage('参数已读取')
     await applyProcessConfig(result.config)
 
-    appendLog(`配置已读取：${result.configPath}`)
+    appendLog(`参数已读取：${result.configPath}`)
   }
 
   const handleSelectCustomPreviewBackground = async (): Promise<void> => {
@@ -1062,7 +998,27 @@ function App(): JSX.Element {
       return
     }
 
+    const taskId = `${Date.now()}`
+    const nextTask: BatchTask = {
+      id: taskId,
+      status: 'running',
+      mode: skipRembg ? 'edge' : 'batch',
+      inputDir: selectedFolder,
+      preset,
+      alphaLow,
+      shrink,
+      totalCount: frameFiles.length,
+      rawCount: 0,
+      outputCount: 0,
+      failedCount: 0,
+      currentStage: skipRembg ? '校验 Raw 缓存并准备修边' : '自动去背景处理中',
+      message: skipRembg ? '正在只重跑边缘...' : '正在批量处理...',
+      outputDir: '',
+      startedAt: Date.now()
+    }
+
     setIsProcessing(true)
+    setBatchTask(nextTask)
     setOutputFolder('')
     setIsPlaying(false)
     previewCacheRef.current.clear()
@@ -1072,43 +1028,78 @@ function App(): JSX.Element {
     appendLog(`Preset：${preset} / AlphaLow=${alphaLow} / Shrink=${shrink}`)
     appendLog(skipRembg ? '跳过 rembg，校验并复用 general_raw。' : '开始 rembg 批量抠图...')
 
-    const result = await window.cutoutAPI.runBatchCutout({
-      inputDir: selectedFolder,
-      preset,
-      alphaLow,
-      shrink,
-      skipRembg
-    })
+    try {
+      const result = await window.cutoutAPI.runBatchCutout({
+        inputDir: selectedFolder,
+        preset,
+        alphaLow,
+        shrink,
+        skipRembg
+      })
 
-    appendLog(result.message ?? (result.ok ? '处理完成。' : '处理失败。'))
-    appendLog(`输入数量：${result.inputCount}`)
-    appendLog(`Raw 数量：${result.rawCount}`)
-    appendLog(`输出数量：${result.outputCount}`)
+      const failedCount = Math.max(0, result.inputCount - result.outputCount)
+      setBatchTask((current) =>
+        current?.id === taskId
+          ? {
+            ...current,
+            status: result.ok ? 'done' : 'error',
+            totalCount: result.inputCount,
+            rawCount: result.rawCount,
+            outputCount: result.outputCount,
+            failedCount,
+            currentStage: result.ok ? '已完成' : '处理失败',
+            message: result.message ?? (result.ok ? '处理完成。' : '处理失败。'),
+            outputDir: result.outputDir,
+            endedAt: Date.now()
+          }
+          : current
+      )
 
-    if (!result.ok) {
-      appendLog('处理失败日志：')
-      if (result.rembgLog.trim()) {
-        appendLog(result.rembgLog.trim())
+      appendLog(result.message ?? (result.ok ? '处理完成。' : '处理失败。'))
+      appendLog(`输入数量：${result.inputCount}`)
+      appendLog(`Raw 数量：${result.rawCount}`)
+      appendLog(`输出数量：${result.outputCount}`)
+
+      if (!result.ok) {
+        appendLog('处理失败日志：')
+        if (result.rembgLog.trim()) {
+          appendLog(result.rembgLog.trim())
+        }
+        if (result.postprocessLog.trim()) {
+          appendLog(result.postprocessLog.trim())
+        }
+        return
       }
-      if (result.postprocessLog.trim()) {
-        appendLog(result.postprocessLog.trim())
+      setRawFolder(result.rawDir)
+      setSoftFolder(result.outputDir)
+      setOutputFolder(result.outputDir)
+      appendLog(`Raw 目录：${result.rawDir}`)
+      appendLog(`输出目录：${result.outputDir}`)
+
+      if (frameFiles.length > 0) {
+        await loadFrameByIndex(currentFrameIndex, frameFiles, selectedFolder, result.rawDir, result.outputDir)
+        setActivePreviewTab('soft')
       }
+
+      appendLog('批量处理完成。')
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error)
+      setBatchTask((current) =>
+        current?.id === taskId
+          ? {
+            ...current,
+            status: 'error',
+            failedCount: current.totalCount,
+            currentStage: '处理失败',
+            message,
+            endedAt: Date.now()
+          }
+          : current
+      )
+      appendLog(`处理失败：${message}`)
+    } finally {
       setIsProcessing(false)
-      return
     }
-    setRawFolder(result.rawDir)
-    setSoftFolder(result.outputDir)
-    setOutputFolder(result.outputDir)
-    appendLog(`Raw 目录：${result.rawDir}`)
-    appendLog(`输出目录：${result.outputDir}`)
-
-    if (frameFiles.length > 0) {
-      await loadFrameByIndex(currentFrameIndex, frameFiles, selectedFolder, result.rawDir, result.outputDir)
-      setActivePreviewTab('soft')
-    }
-
-    appendLog('批量处理完成。')
-    setIsProcessing(false)
   }
 
   const handleOpenOutputFolder = async (): Promise<void> => {
@@ -1178,39 +1169,9 @@ function App(): JSX.Element {
 
         <div className="phase-card">
           <span>当前阶段</span>
-          <strong>Phase 4A</strong>
-          <p>工程文件、最近工程和参数恢复。</p>
+          <strong>Phase 4C</strong>
+          <p>批处理任务与处理状态更清楚。</p>
           <small>{appVersion ? `v${appVersion}` : '读取版本中...'}</small>
-        </div>
-
-        <div className="project-card">
-          <div className="project-card-header">
-            <span>当前工程</span>
-            <strong>{projectName}</strong>
-          </div>
-          <p>{projectMessage}</p>
-          {projectPath ? <small>{projectPath}</small> : null}
-          <div className="project-actions">
-            <button onClick={handleCreateProject}>新建工程</button>
-            <button onClick={handleOpenProject}>打开工程</button>
-            <button onClick={handleSaveProject}>保存工程</button>
-          </div>
-
-          {recentProjects.length > 0 ? (
-            <div className="recent-projects">
-              <span>最近工程</span>
-              {recentProjects.slice(0, 3).map((recent) => (
-                <button
-                  key={recent.projectPath}
-                  onClick={() => {
-                    void handleOpenRecentProject(recent)
-                  }}
-                >
-                  {recent.name}
-                </button>
-              ))}
-            </div>
-          ) : null}
         </div>
 
         <div className="self-check-card">
@@ -1443,11 +1404,11 @@ function App(): JSX.Element {
                 打开输出目录
               </button>
               <button className="secondary-button" onClick={handleSaveProcessConfig} disabled={!selectedFolder}>
-                保存配置
+                保存参数
               </button>
 
               <button className="secondary-button" onClick={handleLoadProcessConfig} disabled={!selectedFolder}>
-                读取配置
+                读取参数
               </button>
             </div>
 
@@ -1618,7 +1579,7 @@ function App(): JSX.Element {
                     </button>
                   ))
                 ) : (
-                  <span>选择或打开工程后可拖动游标快速定位帧</span>
+                  <span>选择视频或序列帧后可拖动游标快速定位帧</span>
                 )}
               </div>
             </div>
@@ -1735,6 +1696,81 @@ function App(): JSX.Element {
               <h3>处理日志</h3>
               <span>Logs</span>
             </div>
+
+            <div className="batch-task-section-title">
+              <div>
+                <h4>批处理任务</h4>
+                <p>显示当前批量处理或只重跑边缘的执行状态。</p>
+              </div>
+            </div>
+
+            {batchTask ? (
+              <div className={`batch-task-card ${batchTask.status}`}>
+                <div className="batch-task-header">
+                  <div>
+                    <span className="batch-task-kicker">当前任务</span>
+                    <strong>{getBatchTaskTitle(batchTask)}</strong>
+                  </div>
+                  <span className="batch-task-status">
+                    {batchTask.status === 'running'
+                      ? '处理中'
+                      : batchTask.status === 'done'
+                        ? '已完成'
+                        : '失败'}
+                  </span>
+                </div>
+
+                <div className="batch-task-message">{batchTask.message}</div>
+
+                <div className="batch-task-progress">
+                  <span
+                    style={{
+                      width: getBatchTaskProgressWidth(batchTask)
+                    }}
+                  />
+                </div>
+
+                <div className="batch-task-stats">
+                  <div>
+                    <span>阶段</span>
+                    <strong>{batchTask.currentStage}</strong>
+                  </div>
+                  <div>
+                    <span>输入</span>
+                    <strong>{batchTask.totalCount}</strong>
+                  </div>
+                  <div>
+                    <span>Raw</span>
+                    <strong>{batchTask.rawCount}</strong>
+                  </div>
+                  <div>
+                    <span>输出</span>
+                    <strong>{batchTask.outputCount}</strong>
+                  </div>
+                  <div>
+                    <span>失败</span>
+                    <strong>{batchTask.failedCount}</strong>
+                  </div>
+                  <div>
+                    <span>耗时</span>
+                    <strong>{formatTaskDuration(batchTask)}</strong>
+                  </div>
+                </div>
+
+                <div className="batch-task-footer">
+                  <span>{batchTask.inputDir}</span>
+                  <button
+                    className="secondary-button"
+                    onClick={() => {
+                      void window.cutoutAPI.openFolder(batchTask.outputDir)
+                    }}
+                    disabled={!batchTask.outputDir}
+                  >
+                    打开任务输出
+                  </button>
+                </div>
+              </div>
+            ) : null}
 
             <div className="logs">
               {logs.map((line, index) => (

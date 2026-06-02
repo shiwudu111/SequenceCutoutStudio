@@ -127,78 +127,6 @@ button {
   color: #526175;
 }
 
-.project-card {
-  display: grid;
-  gap: 10px;
-  padding: 12px;
-  border-radius: 18px;
-  background: #f8fafc;
-  border: 1px solid #d8e0ec;
-}
-
-.project-card-header {
-  display: grid;
-  gap: 4px;
-}
-
-.project-card-header span,
-.recent-projects span {
-  color: #8290a3;
-  font-size: 12px;
-}
-
-.project-card-header strong {
-  overflow: hidden;
-  color: #1f2a44;
-  font-size: 15px;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.project-card p {
-  margin: 0;
-  color: #6c788a;
-  font-size: 12px;
-  line-height: 1.5;
-}
-
-.project-card small {
-  overflow: hidden;
-  color: #526175;
-  font-size: 11px;
-  line-height: 1.4;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.project-actions,
-.recent-projects {
-  display: grid;
-  gap: 8px;
-}
-
-.project-actions {
-  grid-template-columns: 1fr;
-}
-
-.project-actions button,
-.recent-projects button {
-  min-height: 36px;
-  border: 1px solid #dbe3ef;
-  border-radius: 12px;
-  padding: 8px 10px;
-  color: #334158;
-  background: white;
-  font-size: 12px;
-  font-weight: 800;
-  text-align: left;
-}
-
-.project-actions button:hover,
-.recent-projects button:hover {
-  background: #eef2ff;
-}
-
 .workspace {
   padding: 28px;
   overflow: auto;
@@ -483,6 +411,163 @@ button {
 
 .log-panel {
   min-height: 0;
+}
+
+.batch-task-section-title {
+  margin-bottom: 10px;
+}
+
+.batch-task-section-title h4 {
+  margin: 0;
+  color: #263247;
+  font-size: 15px;
+}
+
+.batch-task-section-title p {
+  margin: 4px 0 0;
+  color: #6b7788;
+  font-size: 12px;
+}
+
+.batch-task-card {
+  display: grid;
+  gap: 12px;
+  margin-bottom: 14px;
+  padding: 14px;
+  border: 1px solid #dfe7f1;
+  border-radius: 16px;
+  background: #f8fafc;
+}
+
+.batch-task-card.running {
+  border-color: #c7d2fe;
+  background: #f5f7ff;
+}
+
+.batch-task-card.done {
+  border-color: #bbf7d0;
+  background: #f4fbf6;
+}
+
+.batch-task-card.error {
+  border-color: #fecaca;
+  background: #fff7f7;
+}
+
+.batch-task-header,
+.batch-task-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.batch-task-header > div {
+  display: grid;
+  gap: 2px;
+}
+
+.batch-task-kicker,
+.batch-task-stats span,
+.batch-task-footer span {
+  color: #6b7788;
+  font-size: 12px;
+}
+
+.batch-task-header strong {
+  color: #263247;
+  font-size: 17px;
+}
+
+.batch-task-status {
+  flex: 0 0 auto;
+  border-radius: 999px;
+  padding: 6px 10px;
+  color: #30415d;
+  background: #e7edf6;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.batch-task-card.running .batch-task-status {
+  color: #3446b7;
+  background: #e0e7ff;
+}
+
+.batch-task-card.done .batch-task-status {
+  color: #166534;
+  background: #dcfce7;
+}
+
+.batch-task-card.error .batch-task-status {
+  color: #991b1b;
+  background: #fee2e2;
+}
+
+.batch-task-message {
+  color: #43516a;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.batch-task-progress {
+  height: 8px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: #e5ebf3;
+}
+
+.batch-task-progress span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: #4f63d7;
+  transition: width 180ms ease;
+}
+
+.batch-task-card.done .batch-task-progress span {
+  background: #22c55e;
+}
+
+.batch-task-card.error .batch-task-progress span {
+  background: #ef4444;
+}
+
+.batch-task-stats {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.batch-task-stats div {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+  padding: 9px;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.74);
+}
+
+.batch-task-stats strong {
+  min-width: 0;
+  overflow: hidden;
+  color: #28364f;
+  font-size: 13px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.batch-task-footer span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.batch-task-footer button {
+  flex: 0 0 auto;
+  min-height: 36px;
+  padding: 8px 12px;
 }
 
 .logs {
@@ -1043,6 +1128,27 @@ button:disabled {
 
   .log-panel {
     grid-area: logs;
+  }
+
+  .batch-task-stats {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 760px) {
+  .batch-task-header,
+  .batch-task-footer {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .batch-task-status,
+  .batch-task-footer button {
+    align-self: flex-start;
+  }
+
+  .batch-task-stats {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
 
