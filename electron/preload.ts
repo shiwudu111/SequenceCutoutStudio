@@ -7,6 +7,8 @@ contextBridge.exposeInMainWorld('cutoutAPI', {
 
   selectVideoFile: () => ipcRenderer.invoke('dialog:select-video-file'),
 
+  selectExportFolder: () => ipcRenderer.invoke('dialog:select-export-folder'),
+
   getDroppedPath: (file: File) => webUtils.getPathForFile(file),
 
   resolveDroppedPath: (filePath: string) =>
@@ -70,6 +72,12 @@ contextBridge.exposeInMainWorld('cutoutAPI', {
 
   readImageAsDataUrl: (filePath: string) =>
     ipcRenderer.invoke('preview:read-image-data-url', filePath),
+
+  exportTransparentPngSequence: (args: {
+    sourceDir: string
+    targetRootDir: string
+    inputDir?: string
+  }) => ipcRenderer.invoke('export:transparent-png-sequence', args),
   
   runSelfCheck: () =>
   ipcRenderer.invoke('system:run-self-check'),

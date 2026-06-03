@@ -379,6 +379,25 @@ function joinDebugDetails(...details: string[]): string {
   return details.map((detail) => detail.trim()).filter(Boolean).join('\n\n')
 }
 
+function sanitizeFolderName(name: string): string {
+  const sanitized = name.replace(/[<>:"/\\|?*\x00-\x1f]/g, '_').trim()
+  return sanitized || 'sequence'
+}
+
+function formatExportTimestamp(date: Date): string {
+  const pad = (value: number): string => String(value).padStart(2, '0')
+
+  return [
+    date.getFullYear(),
+    pad(date.getMonth() + 1),
+    pad(date.getDate()),
+    '_',
+    pad(date.getHours()),
+    pad(date.getMinutes()),
+    pad(date.getSeconds())
+  ].join('')
+}
+
 async function writeRawManifest(args: {
   inputDir: string
   rawDir: string
@@ -563,6 +582,48 @@ async function readImageAsDataUrl(filePath: string) {
     ok: true,
     filePath: resolvedPath,
     dataUrl: `data:${mimeType};base64,${buffer.toString('base64')}`
+  }
+}
+
+async function exportTransparentPngSequence(args: {
+  sourceDir: string
+  targetRootDir: string
+  inputDir?: string
+}) {
+  const sourceDir = path.resolve(args.sourceDir)
+  const targetRootDir = path.resolve(args.targetRootDir)
+  const pngFiles = await listPngFileNames(sourceDir)
+
+  if (pngFiles.length === 0) {
+    return {
+      ok: false,
+      message: '当前 Soft 目录没有可导出的透明 PNG。请先完成批量处理。',
+      sourceDir,
+      targetRootDir,
+      exportDir: '',
+      outputCount: 0
+    }
+  }
+
+  const sourceName = args.inputDir ? path.basename(path.resolve(args.inputDir)) : path.basename(sourceDir)
+  const exportDir = path.join(
+    targetRootDir,
+    `${sanitizeFolderName(sourceName)}_transparent_png_${formatExportTimestamp(new Date())}`
+  )
+
+  await fs.mkdir(exportDir, { recursive: true })
+
+  for (const fileName of pngFiles) {
+    await fs.copyFile(path.join(sourceDir, fileName), path.join(exportDir, fileName))
+  }
+
+  return {
+    ok: true,
+    message: `透明 PNG 序列已导出，共 ${pngFiles.length} 张。`,
+    sourceDir,
+    targetRootDir,
+    exportDir,
+    outputCount: pngFiles.length
   }
 }
 
@@ -1489,6 +1550,19 @@ ipcMain.handle('dialog:select-frame-folder', async () => {
   return result.filePaths[0]
 })
 
+ipcMain.handle('dialog:select-export-folder', async () => {
+  const result = await dialog.showOpenDialog({
+    title: '选择导出保存位置',
+    properties: ['openDirectory', 'createDirectory']
+  })
+
+  if (result.canceled || result.filePaths.length === 0) {
+    return null
+  }
+
+  return result.filePaths[0]
+})
+
 ipcMain.handle('project:create', async (_event, args: { config: ProcessConfig }) => {
   let result: Electron.OpenDialogReturnValue
 
@@ -1687,6 +1761,22 @@ ipcMain.handle('process:run-batch-cutout', async (event, args) => {
     }
   }
 })
+
+ipcMain.handle('export:transparent-png-sequence', async (_event, args) => {
+  try {
+    return await exportTransparentPngSequence(args)
+  } catch (error) {
+    return {
+      ok: false,
+      message: error instanceof Error ? error.message : String(error),
+      sourceDir: args?.sourceDir ?? '',
+      targetRootDir: args?.targetRootDir ?? '',
+      exportDir: '',
+      outputCount: 0
+    }
+  }
+})
+
 ipcMain.handle('config:save-process-config', async (_event, args) => {
   try {
     return await saveProcessConfig(args)

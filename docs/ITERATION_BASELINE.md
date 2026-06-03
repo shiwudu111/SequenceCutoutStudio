@@ -491,17 +491,28 @@ SequenceCutoutStudio-Internal-v0.4.0-internal.1-win-x64.zip
 
 # Phase 4D：导出系统
 
-状态：后续阶段。
+状态：进行中，Phase 4D-1 已完成。
 
 目标：让处理结果更方便进入游戏开发流程。
 
 第一阶段导出：
 
 ```text
-[ ] 导出透明 PNG 序列
-[ ] 选择输出目录
-[ ] 输出目录命名规范
-[ ] 输出完成后打开文件夹
+[x] 导出透明 PNG 序列
+[x] 选择输出目录
+[x] 输出目录命名规范
+[x] 输出完成后打开文件夹
+```
+
+Phase 4D-1 阶段回顾：
+
+```text
+目标是否完成：已完成透明 PNG 序列导出第一版。
+实际完成：从当前 Soft 输出目录导出 PNG；用户选择导出保存位置；自动生成 素材名_transparent_png_时间戳 目录；导出完成后自动打开文件夹；日志记录导出目录和 PNG 数量。
+验证命令：tsc --noEmit 通过；npm.cmd run build 通过。
+绿色包验证：本次未重新打包，不涉及 portable Python / rembg / postprocess 链路修改。
+稳定链路影响：不改变 rembg_runner / postprocess 调用链路，不恢复 .venv，不调用 rembg.exe。
+下个阶段唯一主目标：Phase 4D-2 评估是否需要 Sprite Sheet 或 TexturePacker 友好格式。
 ```
 
 后续可扩展导出：

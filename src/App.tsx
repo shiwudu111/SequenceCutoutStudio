@@ -110,6 +110,7 @@ function App(): JSX.Element {
   const [batchTask, setBatchTask] = useState<BatchTask | null>(null)
   const [isTestingSingle, setIsTestingSingle] = useState(false)
   const [isComparing, setIsComparing] = useState(false)
+  const [isExporting, setIsExporting] = useState(false)
   const [compareItems, setCompareItems] = useState<CompareItem[]>([])
   const [configPath, setConfigPath] = useState('')
   const [configMessage, setConfigMessage] = useState('尚未保存参数')
@@ -1167,6 +1168,47 @@ function App(): JSX.Element {
     await window.cutoutAPI.openFolder(outputFolder)
   }
 
+  const handleExportTransparentPngSequence = async (): Promise<void> => {
+    if (!softFolder) {
+      appendLog('还没有可导出的 Soft 结果。请先完成批量处理。')
+      return
+    }
+
+    const targetRootDir = await window.cutoutAPI.selectExportFolder()
+    if (!targetRootDir) {
+      appendLog('已取消导出。')
+      return
+    }
+
+    setIsExporting(true)
+    appendLog('开始导出透明 PNG 序列。')
+    appendLog(`Soft 目录：${softFolder}`)
+    appendLog(`导出位置：${targetRootDir}`)
+
+    try {
+      const result = await window.cutoutAPI.exportTransparentPngSequence({
+        sourceDir: softFolder,
+        targetRootDir,
+        inputDir: selectedFolder
+      })
+
+      appendLog(result.message ?? (result.ok ? '导出完成。' : '导出失败。'))
+
+      if (!result.ok) {
+        return
+      }
+
+      appendLog(`导出目录：${result.exportDir}`)
+      appendLog(`导出 PNG 数量：${result.outputCount}`)
+      await window.cutoutAPI.openFolder(result.exportDir)
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error)
+      appendLog(`导出失败：${message}`)
+    } finally {
+      setIsExporting(false)
+    }
+  }
+
   const handleOpenCurrentFrameFolder = async (): Promise<void> => {
     if (!selectedFolder) {
       appendLog('还没有可打开的序列帧目录。')
@@ -1499,6 +1541,13 @@ function App(): JSX.Element {
               </button>
               <button className="secondary-button" onClick={handleOpenOutputFolder} disabled={!outputFolder}>
                 打开输出目录
+              </button>
+              <button
+                className="secondary-button"
+                onClick={handleExportTransparentPngSequence}
+                disabled={isExporting || isProcessing || !softFolder}
+              >
+                {isExporting ? '导出中...' : '导出 PNG 序列'}
               </button>
               <button className="secondary-button" onClick={handleSaveProcessConfig} disabled={!selectedFolder}>
                 保存参数

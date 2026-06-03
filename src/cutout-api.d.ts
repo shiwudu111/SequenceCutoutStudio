@@ -77,6 +77,21 @@ declare global {
         fileName?: string
     }
 
+    type ExportTransparentPngSequenceArgs = {
+        sourceDir: string
+        targetRootDir: string
+        inputDir?: string
+    }
+
+    type ExportTransparentPngSequenceResult = {
+        ok: boolean
+        message?: string
+        sourceDir: string
+        targetRootDir: string
+        exportDir: string
+        outputCount: number
+    }
+
     type BatchCutoutResult = {
         ok: boolean
         message?: string
@@ -184,6 +199,7 @@ declare global {
             getAppInfo: () => Promise<AppInfo>
             selectFrameFolder: () => Promise<string | null>
             selectVideoFile: () => Promise<string | null>
+            selectExportFolder: () => Promise<string | null>
             getDroppedPath: (file: File) => string
             resolveDroppedPath: (filePath: string) => Promise<ResolveDroppedPathResult>
             scanFrameFolder: (folderPath: string) => Promise<FrameFolderScanResult>
@@ -191,6 +207,7 @@ declare global {
             runSingleCutout: (args: RunSingleCutoutArgs) => Promise<SingleCutoutResult>
             runBatchCutout: (args: RunBatchCutoutArgs) => Promise<BatchCutoutResult>
             onBatchProgress: (callback: (event: BatchProgressEvent) => void) => () => void
+            exportTransparentPngSequence: (args: ExportTransparentPngSequenceArgs) => Promise<ExportTransparentPngSequenceResult>
             readImageAsDataUrl: (filePath: string) => Promise<ImageDataUrlResult>
             runSelfCheck: () => Promise<SelfCheckResult>
             selectBackgroundImageFile: () => Promise<string | null>
