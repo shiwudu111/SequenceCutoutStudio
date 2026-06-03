@@ -20,6 +20,8 @@ contextBridge.exposeInMainWorld('cutoutAPI', {
   inspectCacheStatus: (args: {
     inputDir: string
     preset: 'C' | 'F' | 'I' | 'Custom'
+    alphaLow?: number
+    shrink?: number
   }) => ipcRenderer.invoke('cache:inspect-status', args),
 
   extractVideoFrames: (args: {

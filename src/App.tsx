@@ -111,7 +111,6 @@ function App(): JSX.Element {
   })
   const [isProcessing, setIsProcessing] = useState(false)
   const [batchTask, setBatchTask] = useState<BatchTask | null>(null)
-  const [cacheStatus, setCacheStatus] = useState<CacheStatusResult | null>(null)
   const [isTestingSingle, setIsTestingSingle] = useState(false)
   const [isComparing, setIsComparing] = useState(false)
   const [isExporting, setIsExporting] = useState(false)
@@ -185,20 +184,6 @@ function App(): JSX.Element {
     return '处理失败'
   }
 
-  const getCacheStatusText = (status: CacheStatusKind): string => {
-    if (status === 'ready') {
-      return '可用'
-    }
-    if (status === 'mismatch') {
-      return '不匹配'
-    }
-    if (status === 'incomplete') {
-      return '不完整'
-    }
-
-    return '未发现'
-  }
-
   const inspectCacheStatus = async (
     folderPath: string,
     nextPreset = preset,
@@ -206,10 +191,10 @@ function App(): JSX.Element {
   ): Promise<void> => {
     const result = await window.cutoutAPI.inspectCacheStatus({
       inputDir: folderPath,
-      preset: nextPreset
+      preset: nextPreset,
+      alphaLow: nextPreset === 'Custom' ? alphaLow : EDGE_PRESET_PARAMS[nextPreset].alphaLow,
+      shrink: nextPreset === 'Custom' ? shrink : EDGE_PRESET_PARAMS[nextPreset].shrink
     })
-
-    setCacheStatus(result)
 
     if (!shouldLog) {
       return
@@ -456,7 +441,6 @@ function App(): JSX.Element {
       setLastFrame('-')
       setSameSize('-')
       setAlphaInfo('-')
-      setCacheStatus(null)
       appendLog(`扫描失败：${result.message ?? '未知错误'}`)
       return
     }
@@ -486,7 +470,6 @@ function App(): JSX.Element {
     setKeyFrameIndexes(keyIndexes)
     setRawFolder('')
     setSoftFolder('')
-    setCacheStatus(null)
     setActiveComparePreset(null)
     setCompareItems([])
     setPreviewFrameName(files[0] ?? result.firstFileName ?? '')
@@ -570,7 +553,6 @@ function App(): JSX.Element {
 
     setRawFolder('')
     setSoftFolder('')
-    setCacheStatus(null)
     setFrameFiles([])
     setCurrentFrameIndex(0)
     setKeyFrameIndexes([])
@@ -1329,31 +1311,6 @@ function App(): JSX.Element {
           <p>识别 Raw / Soft 缓存状态，不改变处理链路。</p>
           <small>{appVersion ? `v${appVersion}` : '读取版本中...'}</small>
         </div>
-
-        {cacheStatus ? (
-          <div className="cache-status-card">
-            <div className="cache-status-header">
-              <span>缓存状态</span>
-              <strong>{cacheStatus.preset}</strong>
-            </div>
-            <div className={`cache-status-item ${cacheStatus.rawStatus}`}>
-              <span>Raw</span>
-              <strong>{getCacheStatusText(cacheStatus.rawStatus)}</strong>
-              <small>
-                {cacheStatus.rawCount} / {cacheStatus.inputCount}
-              </small>
-            </div>
-            <p>{cacheStatus.rawMessage}</p>
-            <div className={`cache-status-item ${cacheStatus.softStatus}`}>
-              <span>Soft</span>
-              <strong>{getCacheStatusText(cacheStatus.softStatus)}</strong>
-              <small>
-                {cacheStatus.softCount} / {cacheStatus.inputCount}
-              </small>
-            </div>
-            <p>{cacheStatus.softMessage}</p>
-          </div>
-        ) : null}
 
         <div className="self-check-card">
           <div className="self-check-header">

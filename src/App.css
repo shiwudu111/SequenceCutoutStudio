@@ -1377,54 +1377,6 @@ button:disabled {
   opacity: 0.6;
 }
 
-.cache-status-card {
-  display: grid;
-  gap: 8px;
-  padding: 14px;
-  border: 1px solid #d8e0ec;
-  border-radius: 12px;
-  background: #fbfcfe;
-}
-
-.cache-status-header,
-.cache-status-item {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 10px;
-}
-
-.cache-status-header span,
-.cache-status-item span,
-.cache-status-item small,
-.cache-status-card p {
-  margin: 0;
-  color: #687789;
-  font-size: 12px;
-}
-
-.cache-status-header strong {
-  color: #2f4057;
-}
-
-.cache-status-item {
-  padding-top: 6px;
-  border-top: 1px solid #e6ebf2;
-}
-
-.cache-status-item strong {
-  color: #7a8798;
-}
-
-.cache-status-item.ready strong {
-  color: #159064;
-}
-
-.cache-status-item.mismatch strong,
-.cache-status-item.incomplete strong {
-  color: #b7791f;
-}
-
 .self-check-list {
   display: grid;
   gap: 8px;

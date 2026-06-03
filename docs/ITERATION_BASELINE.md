@@ -2,7 +2,7 @@
 
 版本定位：第一版内测绿色包已通过，进入发布流程固化与下一轮功能开发准备
 
-当前阶段：Phase 4E 缓存系统推进中
+当前阶段：Phase 4E 缓存系统推进中，Phase 4E-2 已完成
 
 基线日期：2026-05-28
 
@@ -580,7 +580,7 @@ Phase 4D 最终收口：
 
 # Phase 4E：缓存系统
 
-状态：进行中，Phase 4E-1 已完成。
+状态：进行中，Phase 4E-2 已完成。
 
 目标：减少重复处理，提高处理效率。
 
@@ -595,8 +595,8 @@ source + model + params -> cache key
 ```text
 [x] 缓存状态识别
 [x] 缓存状态提示
-[ ] 原始素材 hash
-[ ] 参数 hash
+[x] 原始素材 hash
+[x] 参数 hash
 [ ] Raw 缓存管理
 [ ] Soft 缓存管理
 [ ] 缓存命中提示
@@ -617,12 +617,24 @@ Phase 4E-1 阶段回顾：
 
 ```text
 目标是否完成：已完成。
-实际完成：扫描序列帧或切换 preset 后，只读检查当前输入目录旁的 Raw 缓存和 Soft 输出；左侧栏显示 Raw / Soft 状态、数量；日志提示 Raw 缓存是否可用、Soft 输出是否完整。
+实际完成：扫描序列帧或切换 preset 后，只读检查当前输入目录旁的 Raw 缓存和 Soft 输出；日志提示 Raw 缓存是否可用、Soft 输出是否完整。
 本阶段边界：没有自动跳过处理，没有做缓存清理，没有做 hash 命中，没有改 rembg / postprocess 调用链路。
 验证命令：tsc --noEmit 通过；npm.cmd run build 通过。
 绿色包验证：本次未重新打包，不涉及 portable Python / rembg / postprocess 链路修改。
 稳定链路影响：不改变 portable Python / rembg_runner / postprocess 调用链路，不恢复 .venv，不调用 rembg.exe。
 下个阶段唯一主目标：Phase 4E-2 原始素材 hash 与参数 hash 设计，不先接入自动命中。
+```
+
+Phase 4E-2 阶段回顾：
+
+```text
+目标是否完成：已完成 hash 底座。
+实际完成：缓存状态检查时计算 sourceHash、paramsHash 和 cacheKey；sourceHash 基于输入 PNG 文件名、文件大小、修改时间和数量；paramsHash 基于 preset、AlphaLow、Shrink 和模型名。
+本阶段边界：没有自动缓存命中，没有跳过 rembg / postprocess，没有清理缓存，没有改变处理链路；缓存状态只通过日志提示，不在左侧栏新增卡片。
+验证命令：tsc --noEmit 通过；npm.cmd run build 通过。
+绿色包验证：本次未重新打包，不涉及 portable Python / rembg / postprocess 链路修改。
+稳定链路影响：不改变 portable Python / rembg_runner / postprocess 调用链路，不恢复 .venv，不调用 rembg.exe。
+下个阶段唯一主目标：Phase 4E-3 缓存命中提示设计，只提示不自动跳过。
 ```
 
 ---

@@ -3,6 +3,7 @@ import { fileURLToPath } from 'node:url'
 import path from 'node:path'
 import fs from 'node:fs/promises'
 import { spawn } from 'node:child_process'
+import { createHash } from 'node:crypto'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 
@@ -414,6 +415,10 @@ function formatSequenceFileName(prefix: string, index: number, padding: number):
   return `${safePrefix}_${String(index).padStart(safePadding, '0')}.png`
 }
 
+function hashJson(payload: unknown): string {
+  return createHash('sha256').update(JSON.stringify(payload)).digest('hex').slice(0, 16)
+}
+
 async function appendExportLog(line: string): Promise<void> {
   try {
     const logPath = path.join(getRuntimePaths().logsDir, 'export.log')
@@ -600,6 +605,8 @@ async function scanFrameFolder(folderPath: string) {
 async function inspectCacheStatus(args: {
   inputDir: string
   preset: 'C' | 'F' | 'I' | 'Custom'
+  alphaLow?: number
+  shrink?: number
 }) {
   const inputDir = path.resolve(args.inputDir)
   const parentDir = path.dirname(inputDir)
@@ -607,8 +614,38 @@ async function inspectCacheStatus(args: {
   const rawDir = path.join(parentDir, `${inputName}_general_raw`)
   const softDir = path.join(parentDir, `${inputName}_soft_${args.preset}`)
   const inputCount = await countPngFiles(inputDir)
+  const inputFiles = await listPngFileNames(inputDir)
+  const sourceEntries = await Promise.all(
+    inputFiles.map(async (fileName) => {
+      try {
+        const stat = await fs.stat(path.join(inputDir, fileName))
+        return {
+          fileName,
+          size: stat.size,
+          mtimeMs: Math.round(stat.mtimeMs)
+        }
+      } catch {
+        return {
+          fileName,
+          size: 0,
+          mtimeMs: 0
+        }
+      }
+    })
+  )
   const rawCount = await countPngFiles(rawDir)
   const softCount = await countPngFiles(softDir)
+  const sourceHash = hashJson({
+    inputDir,
+    inputCount,
+    files: sourceEntries
+  })
+  const paramsHash = hashJson({
+    preset: args.preset,
+    alphaLow: args.alphaLow ?? null,
+    shrink: args.shrink ?? null,
+    model: 'isnet-general-use'
+  })
   const rawValidation = await validateRawManifest({
     inputDir,
     rawDir
@@ -630,6 +667,9 @@ async function inspectCacheStatus(args: {
     inputCount,
     rawCount,
     softCount,
+    sourceHash,
+    paramsHash,
+    cacheKey: `${sourceHash}-${paramsHash}`,
     rawStatus,
     softStatus,
     rawMessage: rawValidation.ok
@@ -1833,6 +1873,9 @@ ipcMain.handle('cache:inspect-status', async (_event, args) => {
       inputCount: 0,
       rawCount: 0,
       softCount: 0,
+      sourceHash: '',
+      paramsHash: '',
+      cacheKey: '',
       rawStatus: 'missing',
       softStatus: 'missing',
       rawMessage: '缓存状态读取失败。',

@@ -89,6 +89,9 @@ declare global {
         inputCount: number
         rawCount: number
         softCount: number
+        sourceHash: string
+        paramsHash: string
+        cacheKey: string
         rawStatus: CacheStatusKind
         softStatus: CacheStatusKind
         rawMessage: string
@@ -233,7 +236,7 @@ declare global {
             getDroppedPath: (file: File) => string
             resolveDroppedPath: (filePath: string) => Promise<ResolveDroppedPathResult>
             scanFrameFolder: (folderPath: string) => Promise<FrameFolderScanResult>
-            inspectCacheStatus: (args: { inputDir: string; preset: CutoutPreset }) => Promise<CacheStatusResult>
+            inspectCacheStatus: (args: { inputDir: string; preset: CutoutPreset; alphaLow?: number; shrink?: number }) => Promise<CacheStatusResult>
             extractVideoFrames: (args: ExtractVideoFramesArgs) => Promise<ExtractVideoFramesResult>
             runSingleCutout: (args: RunSingleCutoutArgs) => Promise<SingleCutoutResult>
             runBatchCutout: (args: RunBatchCutoutArgs) => Promise<BatchCutoutResult>
