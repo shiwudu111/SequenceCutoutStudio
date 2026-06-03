@@ -622,7 +622,9 @@ async function exportTransparentPngSequence(args: {
   }
 }) {
   const sourceDir = path.resolve(args.sourceDir)
-  const targetRootDir = path.resolve(args.targetRootDir)
+  const targetRootDir = args.targetRootDir
+    ? path.resolve(args.targetRootDir)
+    : path.join(path.dirname(sourceDir), 'exports')
   await appendExportLog(`start source="${sourceDir}" targetRoot="${targetRootDir}"`)
 
   const pngFiles = await listPngFileNames(sourceDir)

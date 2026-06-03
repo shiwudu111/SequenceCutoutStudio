@@ -1177,16 +1177,10 @@ function App(): JSX.Element {
       return
     }
 
-    const targetRootDir = await window.cutoutAPI.selectExportFolder()
-    if (!targetRootDir) {
-      appendLog('已取消导出。')
-      return
-    }
-
     setIsExporting(true)
     appendLog('开始导出透明 PNG 序列。')
     appendLog(`Soft 目录：${softFolder}`)
-    appendLog(`导出位置：${targetRootDir}`)
+    appendLog('导出位置：自动创建在 Soft 目录旁的 exports 文件夹。')
     appendLog(
       `命名规则：${exportFilePrefix || 'frame'} / 起始 ${exportStartIndex} / 补零 ${exportPadding} 位`
     )
@@ -1194,7 +1188,7 @@ function App(): JSX.Element {
     try {
       const result = await window.cutoutAPI.exportTransparentPngSequence({
         sourceDir: softFolder,
-        targetRootDir,
+        targetRootDir: '',
         inputDir: selectedFolder,
         naming: {
           prefix: exportFilePrefix,

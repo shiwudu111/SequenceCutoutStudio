@@ -499,7 +499,7 @@ SequenceCutoutStudio-Internal-v0.4.0-internal.1-win-x64.zip
 
 ```text
 [x] 导出透明 PNG 序列
-[x] 选择输出目录
+[x] 自动创建输出目录
 [x] 输出目录命名规范
 [x] 输出完成后打开文件夹
 [x] 导出 manifest.json 清单
@@ -510,7 +510,7 @@ Phase 4D-1 阶段回顾：
 
 ```text
 目标是否完成：已完成透明 PNG 序列导出第一版。
-实际完成：从当前 Soft 输出目录导出 PNG；用户选择导出保存位置；自动生成 素材名_transparent_png_时间戳 目录；导出完成后自动打开文件夹；日志记录导出目录和 PNG 数量。
+实际完成：从当前 Soft 输出目录导出 PNG；在 Soft 目录旁自动创建 exports 目录；自动生成 素材名_transparent_png_时间戳 目录；日志记录导出目录和 PNG 数量。
 验证命令：tsc --noEmit 通过；npm.cmd run build 通过。
 绿色包验证：本次未重新打包，不涉及 portable Python / rembg / postprocess 链路修改。
 稳定链路影响：不改变 rembg_runner / postprocess 调用链路，不恢复 .venv，不调用 rembg.exe。
@@ -539,6 +539,14 @@ Phase 4D-3 阶段回顾：
 绿色包验证：本次未重新打包，不涉及 portable Python / rembg / postprocess 链路修改。
 稳定链路影响：不改变 rembg_runner / postprocess 调用链路，不恢复 .venv，不调用 rembg.exe。
 下个阶段唯一主目标：Phase 4D 暂停高级导出扩展，正式版后再做 Sprite Sheet / Cocos plist / TexturePacker 兼容格式。
+```
+
+导出目录规则：
+
+```text
+导出 PNG 序列不再弹出 Windows 原生目录选择框。
+原因：packaged 环境下，在原生目录选择框中新建文件夹并立即选择，可能导致应用崩溃。
+当前策略：软件自动在 Soft 目录旁创建 exports/素材名_transparent_png_时间戳。
 ```
 
 后续可扩展导出：
