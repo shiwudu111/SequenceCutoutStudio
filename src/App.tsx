@@ -1199,6 +1199,7 @@ function App(): JSX.Element {
       }
 
       appendLog(`导出目录：${result.exportDir}`)
+      appendLog(`导出清单：${result.manifestPath}`)
       appendLog(`导出 PNG 数量：${result.outputCount}`)
       await window.cutoutAPI.openFolder(result.exportDir)
     } catch (error) {

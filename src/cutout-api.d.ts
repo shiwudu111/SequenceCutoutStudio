@@ -89,6 +89,7 @@ declare global {
         sourceDir: string
         targetRootDir: string
         exportDir: string
+        manifestPath: string
         outputCount: number
     }
 

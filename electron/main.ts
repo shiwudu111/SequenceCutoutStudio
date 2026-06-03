@@ -601,6 +601,7 @@ async function exportTransparentPngSequence(args: {
       sourceDir,
       targetRootDir,
       exportDir: '',
+      manifestPath: '',
       outputCount: 0
     }
   }
@@ -610,6 +611,8 @@ async function exportTransparentPngSequence(args: {
     targetRootDir,
     `${sanitizeFolderName(sourceName)}_transparent_png_${formatExportTimestamp(new Date())}`
   )
+  const exportedAt = new Date().toISOString()
+  const manifestPath = path.join(exportDir, 'manifest.json')
 
   await fs.mkdir(exportDir, { recursive: true })
 
@@ -617,12 +620,37 @@ async function exportTransparentPngSequence(args: {
     await fs.copyFile(path.join(sourceDir, fileName), path.join(exportDir, fileName))
   }
 
+  await fs.writeFile(
+    manifestPath,
+    JSON.stringify(
+      {
+        version: 1,
+        type: 'transparent-png-sequence',
+        exportedAt,
+        sourceDir,
+        inputDir: args.inputDir ? path.resolve(args.inputDir) : '',
+        exportDir,
+        frameCount: pngFiles.length,
+        firstFrame: pngFiles[0],
+        lastFrame: pngFiles[pngFiles.length - 1],
+        files: pngFiles.map((fileName, index) => ({
+          index,
+          fileName
+        }))
+      },
+      null,
+      2
+    ),
+    'utf8'
+  )
+
   return {
     ok: true,
     message: `透明 PNG 序列已导出，共 ${pngFiles.length} 张。`,
     sourceDir,
     targetRootDir,
     exportDir,
+    manifestPath,
     outputCount: pngFiles.length
   }
 }
@@ -1772,6 +1800,7 @@ ipcMain.handle('export:transparent-png-sequence', async (_event, args) => {
       sourceDir: args?.sourceDir ?? '',
       targetRootDir: args?.targetRootDir ?? '',
       exportDir: '',
+      manifestPath: '',
       outputCount: 0
     }
   }
