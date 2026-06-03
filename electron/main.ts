@@ -1891,7 +1891,22 @@ ipcMain.handle('preview:read-image-data-url', async (_event, filePath: string) =
 })
 
 ipcMain.handle('shell:open-folder', async (_event, folderPath: string) => {
-  await shell.openPath(folderPath)
+  try {
+    const resolvedPath = path.resolve(folderPath)
+    const message = await shell.openPath(resolvedPath)
+
+    return {
+      ok: message.length === 0,
+      message,
+      folderPath: resolvedPath
+    }
+  } catch (error) {
+    return {
+      ok: false,
+      message: error instanceof Error ? error.message : String(error),
+      folderPath: folderPath ?? ''
+    }
+  }
 })
 
 app.on('window-all-closed', () => {

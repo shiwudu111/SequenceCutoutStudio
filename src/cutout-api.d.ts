@@ -200,6 +200,12 @@ declare global {
         isPackaged: boolean
     }
 
+    type OpenFolderResult = {
+        ok: boolean
+        message: string
+        folderPath: string
+    }
+
     interface Window {
         cutoutAPI: {
             getAppInfo: () => Promise<AppInfo>
@@ -220,7 +226,7 @@ declare global {
             selectBackgroundImage: () => Promise<SelectBackgroundImageResult>
             saveProcessConfig: (args: SaveProcessConfigArgs) => Promise<ProcessConfigResult>
             loadProcessConfig: (folderPath: string) => Promise<ProcessConfigResult>
-            openFolder: (folderPath: string) => Promise<void>
+            openFolder: (folderPath: string) => Promise<OpenFolderResult>
         }
     }
 }
