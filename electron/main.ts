@@ -1635,15 +1635,22 @@ ipcMain.handle('dialog:select-frame-folder', async () => {
 })
 
 ipcMain.handle('dialog:select-export-folder', async () => {
+  await appendExportLog('select export folder dialog open')
+
   const result = await dialog.showOpenDialog({
     title: '选择导出保存位置',
-    properties: ['openDirectory', 'createDirectory']
+    properties: ['openDirectory']
   })
+
+  await appendExportLog(
+    `select export folder dialog result canceled=${result.canceled} count=${result.filePaths.length}`
+  )
 
   if (result.canceled || result.filePaths.length === 0) {
     return null
   }
 
+  await appendExportLog(`select export folder path="${result.filePaths[0]}"`)
   return result.filePaths[0]
 })
 
