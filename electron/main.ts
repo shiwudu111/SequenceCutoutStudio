@@ -398,6 +398,12 @@ function formatExportTimestamp(date: Date): string {
   ].join('')
 }
 
+function formatSequenceFileName(prefix: string, index: number, padding: number): string {
+  const safePrefix = sanitizeFolderName(prefix).replace(/\s+/g, '_')
+  const safePadding = Math.max(1, Math.min(8, Math.floor(padding)))
+  return `${safePrefix}_${String(index).padStart(safePadding, '0')}.png`
+}
+
 async function writeRawManifest(args: {
   inputDir: string
   rawDir: string
@@ -589,6 +595,11 @@ async function exportTransparentPngSequence(args: {
   sourceDir: string
   targetRootDir: string
   inputDir?: string
+  naming?: {
+    prefix?: string
+    startIndex?: number
+    padding?: number
+  }
 }) {
   const sourceDir = path.resolve(args.sourceDir)
   const targetRootDir = path.resolve(args.targetRootDir)
@@ -613,11 +624,23 @@ async function exportTransparentPngSequence(args: {
   )
   const exportedAt = new Date().toISOString()
   const manifestPath = path.join(exportDir, 'manifest.json')
+  const namingPrefix = args.naming?.prefix?.trim() || sourceName || 'frame'
+  const namingStartIndex = Number.isFinite(args.naming?.startIndex)
+    ? Math.max(0, Math.floor(args.naming?.startIndex ?? 1))
+    : 1
+  const namingPadding = Number.isFinite(args.naming?.padding)
+    ? Math.max(1, Math.min(8, Math.floor(args.naming?.padding ?? 4)))
+    : 4
+  const exportedFiles = pngFiles.map((sourceFileName, index) => ({
+    index,
+    sourceFileName,
+    fileName: formatSequenceFileName(namingPrefix, namingStartIndex + index, namingPadding)
+  }))
 
   await fs.mkdir(exportDir, { recursive: true })
 
-  for (const fileName of pngFiles) {
-    await fs.copyFile(path.join(sourceDir, fileName), path.join(exportDir, fileName))
+  for (const file of exportedFiles) {
+    await fs.copyFile(path.join(sourceDir, file.sourceFileName), path.join(exportDir, file.fileName))
   }
 
   await fs.writeFile(
@@ -630,13 +653,16 @@ async function exportTransparentPngSequence(args: {
         sourceDir,
         inputDir: args.inputDir ? path.resolve(args.inputDir) : '',
         exportDir,
+        naming: {
+          prefix: sanitizeFolderName(namingPrefix).replace(/\s+/g, '_'),
+          startIndex: namingStartIndex,
+          padding: namingPadding,
+          pattern: `${sanitizeFolderName(namingPrefix).replace(/\s+/g, '_')}_${'0'.repeat(namingPadding)}.png`
+        },
         frameCount: pngFiles.length,
-        firstFrame: pngFiles[0],
-        lastFrame: pngFiles[pngFiles.length - 1],
-        files: pngFiles.map((fileName, index) => ({
-          index,
-          fileName
-        }))
+        firstFrame: exportedFiles[0]?.fileName ?? '',
+        lastFrame: exportedFiles[exportedFiles.length - 1]?.fileName ?? '',
+        files: exportedFiles
       },
       null,
       2

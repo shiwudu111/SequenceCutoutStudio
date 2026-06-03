@@ -491,7 +491,7 @@ SequenceCutoutStudio-Internal-v0.4.0-internal.1-win-x64.zip
 
 # Phase 4D：导出系统
 
-状态：进行中，Phase 4D-2 已完成。
+状态：进行中，Phase 4D-3 已完成。
 
 目标：让处理结果更方便进入游戏开发流程。
 
@@ -503,6 +503,7 @@ SequenceCutoutStudio-Internal-v0.4.0-internal.1-win-x64.zip
 [x] 输出目录命名规范
 [x] 输出完成后打开文件夹
 [x] 导出 manifest.json 清单
+[x] 按规则批量重命名导出 PNG 序列
 ```
 
 Phase 4D-1 阶段回顾：
@@ -525,12 +526,25 @@ Phase 4D-2 阶段回顾：
 验证命令：tsc --noEmit 通过；npm.cmd run build 通过。
 绿色包验证：本次未重新打包，不涉及 portable Python / rembg / postprocess 链路修改。
 稳定链路影响：不改变 rembg_runner / postprocess 调用链路，不恢复 .venv，不调用 rembg.exe。
-下个阶段唯一主目标：Phase 4D-3 评估 Sprite Sheet 或 TexturePacker 友好格式。
+下个阶段唯一主目标：Phase 4D-3 按规则批量重命名导出 PNG 序列。
+```
+
+Phase 4D-3 阶段回顾：
+
+```text
+目标是否完成：已完成最小命名规则导出。
+实际完成：导出透明 PNG 序列时可设置命名前缀、起始编号和补零位数；导出文件按规则重命名，例如 frame_0001.png；manifest.json 记录原始文件名和导出文件名映射；前端当前阶段显示更新为 Phase 4D。
+本阶段边界：只做 PNG 序列重命名底座，没有做 Sprite Sheet 拼图，没有做 TexturePacker JSON，没有做 Cocos plist，没有做引擎专用目录。
+验证命令：tsc --noEmit 通过；npm.cmd run build 通过。
+绿色包验证：本次未重新打包，不涉及 portable Python / rembg / postprocess 链路修改。
+稳定链路影响：不改变 rembg_runner / postprocess 调用链路，不恢复 .venv，不调用 rembg.exe。
+下个阶段唯一主目标：Phase 4D 暂停高级导出扩展，正式版后再做 Sprite Sheet / Cocos plist / TexturePacker 兼容格式。
 ```
 
 后续可扩展导出：
 
 ```text
+[ ] 导出命名模板扩展
 [ ] Sprite Sheet
 [ ] TexturePacker 友好格式
 [ ] WebM alpha

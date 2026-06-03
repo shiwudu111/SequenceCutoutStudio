@@ -77,6 +77,11 @@ contextBridge.exposeInMainWorld('cutoutAPI', {
     sourceDir: string
     targetRootDir: string
     inputDir?: string
+    naming?: {
+      prefix?: string
+      startIndex?: number
+      padding?: number
+    }
   }) => ipcRenderer.invoke('export:transparent-png-sequence', args),
   
   runSelfCheck: () =>

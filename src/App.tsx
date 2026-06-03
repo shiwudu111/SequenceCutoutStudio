@@ -92,6 +92,9 @@ function App(): JSX.Element {
   const [videoFps, setVideoFps] = useState(12)
   const [videoDuration, setVideoDuration] = useState(4)
   const [videoOutputPrefix, setVideoOutputPrefix] = useState('sample')
+  const [exportFilePrefix, setExportFilePrefix] = useState('frame')
+  const [exportStartIndex, setExportStartIndex] = useState(1)
+  const [exportPadding, setExportPadding] = useState(4)
   const [previewBackground, setPreviewBackground] = useState<PreviewBackground>('black')
   const [customPreviewBackgroundPath, setCustomPreviewBackgroundPath] = useState('')
   const [customPreviewBackgroundDataUrl, setCustomPreviewBackgroundDataUrl] = useState('')
@@ -131,7 +134,7 @@ function App(): JSX.Element {
   const logsRef = useRef<HTMLDivElement | null>(null)
   const [logs, setLogs] = useState<string[]>([
     'Sequence Cutout Studio 已启动。',
-    '当前阶段：Phase 4C - 任务队列与批处理稳定化。'
+    '当前阶段：Phase 4D - 导出系统。'
   ])
 
   const appendLog = (line: string): void => {
@@ -1184,12 +1187,20 @@ function App(): JSX.Element {
     appendLog('开始导出透明 PNG 序列。')
     appendLog(`Soft 目录：${softFolder}`)
     appendLog(`导出位置：${targetRootDir}`)
+    appendLog(
+      `命名规则：${exportFilePrefix || 'frame'} / 起始 ${exportStartIndex} / 补零 ${exportPadding} 位`
+    )
 
     try {
       const result = await window.cutoutAPI.exportTransparentPngSequence({
         sourceDir: softFolder,
         targetRootDir,
-        inputDir: selectedFolder
+        inputDir: selectedFolder,
+        naming: {
+          prefix: exportFilePrefix,
+          startIndex: exportStartIndex,
+          padding: exportPadding
+        }
       })
 
       appendLog(result.message ?? (result.ok ? '导出完成。' : '导出失败。'))
@@ -1268,8 +1279,8 @@ function App(): JSX.Element {
 
         <div className="phase-card">
           <span>当前阶段</span>
-          <strong>Phase 4C</strong>
-          <p>批处理任务与处理状态更清楚。</p>
+          <strong>Phase 4D</strong>
+          <p>导出透明 PNG 序列并支持命名规则。</p>
           <small>{appVersion ? `v${appVersion}` : '读取版本中...'}</small>
         </div>
 
@@ -1504,6 +1515,41 @@ function App(): JSX.Element {
                 onChange={(event) => setShrink(Number(event.target.value))}
               />
             </label>
+
+            <div className="export-naming-row">
+              <label className="field">
+                <span>导出命名</span>
+                <input
+                  type="text"
+                  value={exportFilePrefix}
+                  onChange={(event) => setExportFilePrefix(event.target.value)}
+                  placeholder="frame"
+                />
+              </label>
+
+              <label className="field">
+                <span>起始编号</span>
+                <input
+                  type="number"
+                  min="0"
+                  step="1"
+                  value={exportStartIndex}
+                  onChange={(event) => setExportStartIndex(Number(event.target.value))}
+                />
+              </label>
+
+              <label className="field">
+                <span>补零位数</span>
+                <input
+                  type="number"
+                  min="1"
+                  max="8"
+                  step="1"
+                  value={exportPadding}
+                  onChange={(event) => setExportPadding(Number(event.target.value))}
+                />
+              </label>
+            </div>
 
             <div className="button-row">
               <button

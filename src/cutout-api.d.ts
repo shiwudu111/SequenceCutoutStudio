@@ -81,6 +81,11 @@ declare global {
         sourceDir: string
         targetRootDir: string
         inputDir?: string
+        naming?: {
+            prefix?: string
+            startIndex?: number
+            padding?: number
+        }
     }
 
     type ExportTransparentPngSequenceResult = {
