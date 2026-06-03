@@ -1212,11 +1212,7 @@ function App(): JSX.Element {
       appendLog(`导出目录：${result.exportDir}`)
       appendLog(`导出清单：${result.manifestPath}`)
       appendLog(`导出 PNG 数量：${result.outputCount}`)
-
-      const openResult = await window.cutoutAPI.openFolder(result.exportDir)
-      if (!openResult.ok) {
-        appendLog(`导出目录打开失败：${openResult.message || result.exportDir}`)
-      }
+      appendLog('导出完成，请从日志中的导出目录检查文件。')
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error)
       appendLog(`导出失败：${message}`)

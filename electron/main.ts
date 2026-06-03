@@ -36,6 +36,16 @@ const PROJECT_FILE_NAME = 'project.json'
 const RECENT_PROJECTS_FILE_NAME = 'recent-projects.json'
 const RAW_MANIFEST_FILE_NAME = '.raw-manifest.json'
 
+process.on('uncaughtException', (error) => {
+  void appendExportLog(`uncaughtException ${error.stack ?? error.message}`)
+})
+
+process.on('unhandledRejection', (reason) => {
+  void appendExportLog(
+    `unhandledRejection ${reason instanceof Error ? reason.stack ?? reason.message : String(reason)}`
+  )
+})
+
 type ProcessConfig = {
   version: 1
   updatedAt: string
@@ -404,6 +414,16 @@ function formatSequenceFileName(prefix: string, index: number, padding: number):
   return `${safePrefix}_${String(index).padStart(safePadding, '0')}.png`
 }
 
+async function appendExportLog(line: string): Promise<void> {
+  try {
+    const logPath = path.join(getRuntimePaths().logsDir, 'export.log')
+    await fs.mkdir(path.dirname(logPath), { recursive: true })
+    await fs.appendFile(logPath, `[${new Date().toISOString()}] ${line}\n`, 'utf8')
+  } catch {
+    // Logging must never break export.
+  }
+}
+
 async function writeRawManifest(args: {
   inputDir: string
   rawDir: string
@@ -603,9 +623,13 @@ async function exportTransparentPngSequence(args: {
 }) {
   const sourceDir = path.resolve(args.sourceDir)
   const targetRootDir = path.resolve(args.targetRootDir)
+  await appendExportLog(`start source="${sourceDir}" targetRoot="${targetRootDir}"`)
+
   const pngFiles = await listPngFileNames(sourceDir)
+  await appendExportLog(`source png count=${pngFiles.length}`)
 
   if (pngFiles.length === 0) {
+    await appendExportLog('stop no png files')
     return {
       ok: false,
       message: '当前 Soft 目录没有可导出的透明 PNG。请先完成批量处理。',
@@ -636,12 +660,17 @@ async function exportTransparentPngSequence(args: {
     sourceFileName,
     fileName: formatSequenceFileName(namingPrefix, namingStartIndex + index, namingPadding)
   }))
+  await appendExportLog(
+    `prepared exportDir="${exportDir}" prefix="${namingPrefix}" start=${namingStartIndex} padding=${namingPadding}`
+  )
 
   await fs.mkdir(exportDir, { recursive: true })
+  await appendExportLog('created export directory')
 
   for (const file of exportedFiles) {
     await fs.copyFile(path.join(sourceDir, file.sourceFileName), path.join(exportDir, file.fileName))
   }
+  await appendExportLog(`copied files=${exportedFiles.length}`)
 
   await fs.writeFile(
     manifestPath,
@@ -669,6 +698,7 @@ async function exportTransparentPngSequence(args: {
     ),
     'utf8'
   )
+  await appendExportLog(`wrote manifest="${manifestPath}"`)
 
   return {
     ok: true,
@@ -1820,6 +1850,9 @@ ipcMain.handle('export:transparent-png-sequence', async (_event, args) => {
   try {
     return await exportTransparentPngSequence(args)
   } catch (error) {
+    const message = error instanceof Error ? error.stack ?? error.message : String(error)
+    await appendExportLog(`error ${message}`)
+
     return {
       ok: false,
       message: error instanceof Error ? error.message : String(error),
