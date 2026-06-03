@@ -207,6 +207,7 @@ function App(): JSX.Element {
 
     appendLog(`缓存状态：${result.rawMessage}`)
     appendLog(`输出状态：${result.softMessage}`)
+    appendLog(`复用建议：${result.cacheHitMessage}`)
   }
 
   useEffect(() => {

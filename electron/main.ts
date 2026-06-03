@@ -657,6 +657,22 @@ async function inspectCacheStatus(args: {
       : softCount > 0
         ? 'incomplete'
         : 'missing'
+  const cacheHitStatus =
+    rawStatus === 'ready' && softStatus === 'ready'
+      ? 'full'
+      : rawStatus === 'ready'
+        ? 'raw-only'
+        : softStatus === 'ready'
+          ? 'soft-only'
+          : 'none'
+  const cacheHitMessage =
+    cacheHitStatus === 'full'
+      ? '检测到完整 Raw 缓存和 Soft 输出，可直接预览或导出；如需重新生成，仍可手动批量处理。'
+      : cacheHitStatus === 'raw-only'
+        ? '检测到可用 Raw 缓存，可使用“只重跑边缘”重新生成 Soft 输出。'
+        : cacheHitStatus === 'soft-only'
+          ? '检测到完整 Soft 输出，但 Raw 缓存不可用；可直接导出已有 Soft 结果。'
+          : '没有检测到可直接复用的完整缓存。'
 
   return {
     ok: true,
@@ -670,6 +686,8 @@ async function inspectCacheStatus(args: {
     sourceHash,
     paramsHash,
     cacheKey: `${sourceHash}-${paramsHash}`,
+    cacheHitStatus,
+    cacheHitMessage,
     rawStatus,
     softStatus,
     rawMessage: rawValidation.ok
@@ -1876,6 +1894,8 @@ ipcMain.handle('cache:inspect-status', async (_event, args) => {
       sourceHash: '',
       paramsHash: '',
       cacheKey: '',
+      cacheHitStatus: 'none',
+      cacheHitMessage: '缓存状态读取失败。',
       rawStatus: 'missing',
       softStatus: 'missing',
       rawMessage: '缓存状态读取失败。',

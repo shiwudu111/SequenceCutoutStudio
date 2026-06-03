@@ -2,7 +2,7 @@
 
 版本定位：第一版内测绿色包已通过，进入发布流程固化与下一轮功能开发准备
 
-当前阶段：Phase 4E 缓存系统推进中，Phase 4E-2 已完成
+当前阶段：Phase 4E 缓存系统推进中，Phase 4E-3 已完成
 
 基线日期：2026-05-28
 
@@ -580,7 +580,7 @@ Phase 4D 最终收口：
 
 # Phase 4E：缓存系统
 
-状态：进行中，Phase 4E-2 已完成。
+状态：进行中，Phase 4E-3 已完成。
 
 目标：减少重复处理，提高处理效率。
 
@@ -599,7 +599,7 @@ source + model + params -> cache key
 [x] 参数 hash
 [ ] Raw 缓存管理
 [ ] Soft 缓存管理
-[ ] 缓存命中提示
+[x] 缓存命中提示
 [ ] 清理缓存功能
 [ ] 缓存占用大小显示
 ```
@@ -635,6 +635,18 @@ Phase 4E-2 阶段回顾：
 绿色包验证：本次未重新打包，不涉及 portable Python / rembg / postprocess 链路修改。
 稳定链路影响：不改变 portable Python / rembg_runner / postprocess 调用链路，不恢复 .venv，不调用 rembg.exe。
 下个阶段唯一主目标：Phase 4E-3 缓存命中提示设计，只提示不自动跳过。
+```
+
+Phase 4E-3 阶段回顾：
+
+```text
+目标是否完成：已完成。
+实际完成：缓存状态检查返回 cacheHitStatus 和 cacheHitMessage；日志提示完整缓存、仅 Raw 可用、仅 Soft 可用或无可复用缓存；提示用户可预览、导出或手动只重跑边缘。
+本阶段边界：没有自动跳过批量处理，没有自动只重跑边缘，没有清理缓存，没有改变 rembg / postprocess 调用链路。
+验证命令：tsc --noEmit 通过；npm.cmd run build 通过。
+绿色包验证：本次未重新打包，不涉及 portable Python / rembg / postprocess 链路修改。
+稳定链路影响：不改变 portable Python / rembg_runner / postprocess 调用链路，不恢复 .venv，不调用 rembg.exe。
+下个阶段唯一主目标：Phase 4E-4 Raw / Soft 缓存管理方案设计，先不做清理功能。
 ```
 
 ---

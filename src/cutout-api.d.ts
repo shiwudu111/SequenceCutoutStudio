@@ -78,6 +78,7 @@ declare global {
     }
 
     type CacheStatusKind = 'ready' | 'missing' | 'mismatch' | 'incomplete'
+    type CacheHitStatus = 'full' | 'raw-only' | 'soft-only' | 'none'
 
     type CacheStatusResult = {
         ok: boolean
@@ -92,6 +93,8 @@ declare global {
         sourceHash: string
         paramsHash: string
         cacheKey: string
+        cacheHitStatus: CacheHitStatus
+        cacheHitMessage: string
         rawStatus: CacheStatusKind
         softStatus: CacheStatusKind
         rawMessage: string
