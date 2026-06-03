@@ -5,6 +5,14 @@ import react from '@vitejs/plugin-react'
 
 // https://vitejs.dev/config/
 export default defineConfig({
+  optimizeDeps: {
+    entries: ['index.html'],
+  },
+  server: {
+    watch: {
+      ignored: ['**/release/**', '**/portable-root/**'],
+    },
+  },
   plugins: [
     react(),
     electron({

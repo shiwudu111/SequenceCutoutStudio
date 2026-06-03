@@ -23,11 +23,23 @@ declare global {
     type CutoutPreset = 'C' | 'F' | 'I' | 'Custom'
 
     type RunBatchCutoutArgs = {
+        taskId?: string
         inputDir: string
         preset: CutoutPreset
         alphaLow: number
         shrink: number
         skipRembg?: boolean
+    }
+
+    type BatchProgressEvent = {
+        taskId: string
+        stage: 'prepare' | 'rembg' | 'postprocess' | 'done' | 'error'
+        message: string
+        inputCount?: number
+        rawCount?: number
+        outputCount?: number
+        outputDir?: string
+        debugMessage?: string
     }
     type RunSingleCutoutArgs = {
         inputDir: string
@@ -79,6 +91,7 @@ declare global {
         shrink: number
         rembgLog: string
         postprocessLog: string
+        debugMessage?: string
     }
 
 
@@ -177,6 +190,7 @@ declare global {
             extractVideoFrames: (args: ExtractVideoFramesArgs) => Promise<ExtractVideoFramesResult>
             runSingleCutout: (args: RunSingleCutoutArgs) => Promise<SingleCutoutResult>
             runBatchCutout: (args: RunBatchCutoutArgs) => Promise<BatchCutoutResult>
+            onBatchProgress: (callback: (event: BatchProgressEvent) => void) => () => void
             readImageAsDataUrl: (filePath: string) => Promise<ImageDataUrlResult>
             runSelfCheck: () => Promise<SelfCheckResult>
             selectBackgroundImageFile: () => Promise<string | null>

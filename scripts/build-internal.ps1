@@ -84,6 +84,123 @@ function Move-WithRetry {
     }
 }
 
+function Get-IcoEntries {
+    param([string]$Path)
+
+    $bytes = [System.IO.File]::ReadAllBytes($Path)
+    $count = [BitConverter]::ToUInt16($bytes, 4)
+    $entries = @()
+
+    for ($i = 0; $i -lt $count; $i++) {
+        $offset = 6 + ($i * 16)
+        $width = $bytes[$offset]
+        if ($width -eq 0) {
+            $width = 256
+        }
+
+        $dataSize = [BitConverter]::ToUInt32($bytes, $offset + 8)
+        $dataOffset = [BitConverter]::ToUInt32($bytes, $offset + 12)
+        $signature = [System.Text.Encoding]::ASCII.GetString($bytes, [int]$dataOffset + 1, 3)
+        $format = "DIB"
+        if ($signature -eq "PNG") {
+            $format = "PNG"
+        }
+
+        $entries += [PSCustomObject]@{
+            Size = $width
+            Bytes = $dataSize
+            Format = $format
+        }
+    }
+
+    return $entries
+}
+
+function Assert-LauncherIconSource {
+    param([string]$Path)
+
+    $entries = Get-IcoEntries -Path $Path
+    $requiredSizes = @(16, 24, 32, 40, 48, 64, 96, 128, 256)
+
+    foreach ($size in $requiredSizes) {
+        $entry = $entries | Where-Object { $_.Size -eq $size } | Select-Object -First 1
+        if (-not $entry) {
+            throw "Launcher icon is missing ${size}px entry: $Path"
+        }
+
+        if ($entry.Format -ne "PNG") {
+            throw "Launcher icon ${size}px entry must be PNG to avoid Explorer using blurry DIB entries: $Path"
+        }
+    }
+}
+
+function Assert-LauncherExeIcon {
+    param([string]$Path)
+
+    Add-Type -TypeDefinition @'
+using System;
+using System.Runtime.InteropServices;
+public static class ScsIconVerifier {
+  [DllImport("user32.dll", CharSet = CharSet.Unicode)]
+  public static extern int PrivateExtractIcons(string szFileName, int nIconIndex, int cxIcon, int cyIcon, IntPtr[] phicon, int[] piconid, int nIcons, int flags);
+  [DllImport("user32.dll")]
+  public static extern bool DestroyIcon(IntPtr hIcon);
+}
+'@ -ErrorAction SilentlyContinue
+    Add-Type -AssemblyName System.Drawing
+
+    foreach ($index in @(0, 1)) {
+        foreach ($size in @(48, 64, 256)) {
+            $handles = New-Object IntPtr[] 1
+            $ids = New-Object int[] 1
+            $count = [ScsIconVerifier]::PrivateExtractIcons($Path, $index, $size, $size, $handles, $ids, 1, 0)
+
+            if ($count -le 0 -or $handles[0] -eq [IntPtr]::Zero) {
+                throw "Launcher exe icon extraction failed for icon index $index at ${size}px: $Path"
+            }
+
+            $icon = [System.Drawing.Icon]::FromHandle($handles[0])
+            try {
+                if ($icon.Width -ne $size -or $icon.Height -ne $size) {
+                    throw "Launcher exe icon index $index returned $($icon.Width)x$($icon.Height), expected ${size}x${size}: $Path"
+                }
+            }
+            finally {
+                $icon.Dispose()
+                [ScsIconVerifier]::DestroyIcon($handles[0]) | Out-Null
+            }
+        }
+    }
+}
+
+function Refresh-ShellIconCache {
+    param([string]$Path)
+
+    Add-Type -TypeDefinition @'
+using System;
+using System.Runtime.InteropServices;
+public static class ScsShellNotify {
+  [DllImport("shell32.dll", CharSet = CharSet.Unicode)]
+  public static extern void SHChangeNotify(int wEventId, uint uFlags, string dwItem1, string dwItem2);
+}
+'@ -ErrorAction SilentlyContinue
+
+    $SHCNE_UPDATEITEM = 0x00002000
+    $SHCNE_ASSOCCHANGED = 0x08000000
+    $SHCNF_PATHW = 0x0005
+    $SHCNF_IDLIST = 0x0000
+
+    $directory = Split-Path -Parent $Path
+    [ScsShellNotify]::SHChangeNotify($SHCNE_UPDATEITEM, $SHCNF_PATHW, $Path, $null)
+    [ScsShellNotify]::SHChangeNotify($SHCNE_UPDATEITEM, $SHCNF_PATHW, $directory, $null)
+    [ScsShellNotify]::SHChangeNotify($SHCNE_ASSOCCHANGED, $SHCNF_IDLIST, $null, $null)
+
+    $ie4uinit = Join-Path $env:WINDIR "System32\ie4uinit.exe"
+    if (Test-Path -LiteralPath $ie4uinit) {
+        & $ie4uinit -show
+    }
+}
+
 function Invoke-CommandChecked {
     param(
         [string]$FilePath,
@@ -272,6 +389,7 @@ Write-Step "Compiling launcher"
 Assert-Exists -Path $launcherSource -Message "Launcher source was not found."
 Assert-Exists -Path $iconPath -Message "Launcher icon was not found."
 Assert-Exists -Path $splashPath -Message "Launcher splash image was not found."
+Assert-LauncherIconSource -Path $iconPath
 
 $csc = Find-Csc
 $cscArgs = @(
@@ -325,6 +443,9 @@ $resourceHackerArgs = @(
 Invoke-CommandChecked -FilePath $resourceHacker -Arguments $resourceHackerArgs -WorkingDirectory $root
 Wait-ForPath -Path $resourceHackerOutput -TimeoutSeconds 30
 Move-WithRetry -Source $resourceHackerOutput -Destination $launcherOutput
+Assert-LauncherExeIcon -Path $launcherOutput
+(Get-Item -LiteralPath $launcherOutput).LastWriteTime = Get-Date
+Refresh-ShellIconCache -Path $launcherOutput
 
 Write-Step "Validating portable runtime layout"
 $finalRoot = Join-Path $internalAppDir "resources\portable-root"

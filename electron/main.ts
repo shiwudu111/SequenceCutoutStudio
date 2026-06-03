@@ -155,6 +155,19 @@ type RunCommandResult = {
   stderr: string
 }
 
+type BatchProgressStage = 'prepare' | 'rembg' | 'postprocess' | 'done' | 'error'
+
+type BatchProgressEvent = {
+  taskId: string
+  stage: BatchProgressStage
+  message: string
+  inputCount?: number
+  rawCount?: number
+  outputCount?: number
+  outputDir?: string
+  debugMessage?: string
+}
+
 type CommandEnv = Record<string, string | undefined>
 
 type SelfCheckStatus = 'ok' | 'missing' | 'error'
@@ -346,6 +359,26 @@ async function listPngFileNames(folderPath: string): Promise<string[]> {
   }
 }
 
+function formatCommandDebug(title: string, result: RunCommandResult): string {
+  const details = [`${title} exit code: ${result.code ?? 'unknown'}`]
+  const stdout = result.stdout.trim()
+  const stderr = result.stderr.trim()
+
+  if (stdout) {
+    details.push(`${title} stdout:\n${stdout}`)
+  }
+
+  if (stderr) {
+    details.push(`${title} stderr:\n${stderr}`)
+  }
+
+  return details.join('\n')
+}
+
+function joinDebugDetails(...details: string[]): string {
+  return details.map((detail) => detail.trim()).filter(Boolean).join('\n\n')
+}
+
 async function writeRawManifest(args: {
   inputDir: string
   rawDir: string
@@ -386,21 +419,24 @@ async function validateRawManifest(args: {
     if (manifest.inputDir !== args.inputDir) {
       return {
         ok: false,
-        message: '无法跳过 rembg：Raw 缓存来源不是当前输入目录。请先完整批量处理一次。'
+        message: '当前 Raw 缓存和输入帧不匹配，不能只重跑边缘。请先完整批量处理一次。',
+        debugMessage: `Raw 缓存来源不是当前输入目录。\n输入目录：${args.inputDir}\n缓存记录：${manifest.inputDir}`
       }
     }
 
     if (inputFiles.length === 0) {
       return {
         ok: false,
-        message: '无法跳过 rembg：输入目录没有 PNG 文件。'
+        message: '没有找到可处理的 PNG 序列帧。请先选择包含 PNG 帧的文件夹。',
+        debugMessage: `输入目录没有 PNG 文件：${args.inputDir}`
       }
     }
 
     if (rawFiles.length !== inputFiles.length) {
       return {
         ok: false,
-        message: `无法跳过 rembg：Raw 数量不一致。原图 ${inputFiles.length} 张，Raw ${rawFiles.length} 张。请先完整批量处理一次。`
+        message: '当前 Raw 缓存和输入帧不匹配，不能只重跑边缘。请先完整批量处理一次。',
+        debugMessage: `Raw 数量不一致。原图 ${inputFiles.length} 张，Raw ${rawFiles.length} 张。`
       }
     }
 
@@ -409,7 +445,8 @@ async function validateRawManifest(args: {
     if (missingFiles.length > 0) {
       return {
         ok: false,
-        message: `无法跳过 rembg：Raw 缺少 ${missingFiles.length} 张对应文件。请先完整批量处理一次。`
+        message: '当前 Raw 缓存和输入帧不匹配，不能只重跑边缘。请先完整批量处理一次。',
+        debugMessage: `Raw 缺少 ${missingFiles.length} 张对应文件：${missingFiles.slice(0, 20).join(', ')}`
       }
     }
 
@@ -420,7 +457,8 @@ async function validateRawManifest(args: {
   } catch {
     return {
       ok: false,
-      message: '无法跳过 rembg：没有找到有效 Raw 缓存记录。请先完整批量处理一次。'
+      message: '当前 Raw 缓存和输入帧不匹配，不能只重跑边缘。请先完整批量处理一次。',
+      debugMessage: `没有找到有效 Raw 缓存记录：${manifestPath}`
     }
   }
 }
@@ -1070,13 +1108,24 @@ async function runSingleCutout(args: {
 }
 
 async function runBatchCutout(args: {
+  taskId?: string
   inputDir: string
   preset: 'C' | 'F' | 'I' | 'Custom'
   alphaLow: number
   shrink: number
   skipRembg?: boolean
+  onProgress?: (event: BatchProgressEvent) => void
 }) {
   const runtimePaths = getRuntimePaths()
+  const taskId = args.taskId ?? ''
+  const reportProgress = (event: Parameters<NonNullable<typeof args.onProgress>>[0]): void => {
+    if (taskId && args.onProgress) {
+      args.onProgress({
+        ...event,
+        taskId
+      })
+    }
+  }
   const inputDir = path.resolve(args.inputDir)
   const parentDir = path.dirname(inputDir)
   const inputName = path.basename(inputDir)
@@ -1090,11 +1139,33 @@ async function runBatchCutout(args: {
   await fs.mkdir(path.dirname(logPath), { recursive: true })
 
   const inputCount = await countPngFiles(inputDir)
+  reportProgress({
+    taskId,
+    stage: 'prepare',
+    message: `已扫描 ${inputCount} 张 PNG，准备开始处理。`,
+    inputCount,
+    rawCount: 0,
+    outputCount: 0,
+    outputDir
+  })
 
   if (inputCount <= 0) {
+    const message = '没有找到可处理的 PNG 序列帧。请先选择包含 PNG 帧的文件夹。'
+    const debugMessage = `输入目录没有 PNG 文件：${inputDir}`
+    reportProgress({
+      taskId,
+      stage: 'error',
+      message,
+      inputCount,
+      rawCount: 0,
+      outputCount: 0,
+      outputDir,
+      debugMessage
+    })
     return {
       ok: false,
-      message: '输入目录中没有 PNG 文件。',
+      message,
+      debugMessage,
       inputDir,
       rawDir,
       outputDir,
@@ -1118,20 +1189,41 @@ async function runBatchCutout(args: {
   }
 
   if (skipRembg) {
+    reportProgress({
+      taskId,
+      stage: 'prepare',
+      message: '正在校验 Raw 缓存。',
+      inputCount,
+      rawCount: await countPngFiles(rawDir),
+      outputCount: 0,
+      outputDir
+    })
     const validation = await validateRawManifest({
       inputDir,
       rawDir
     })
 
     if (!validation.ok) {
+      const rawCount = await countPngFiles(rawDir)
+      reportProgress({
+        taskId,
+        stage: 'error',
+        message: validation.message,
+        inputCount,
+        rawCount,
+        outputCount: 0,
+        outputDir,
+        debugMessage: validation.debugMessage
+      })
       return {
         ok: false,
         message: validation.message,
+        debugMessage: validation.debugMessage,
         inputDir,
         rawDir,
         outputDir,
         inputCount,
-        rawCount: await countPngFiles(rawDir),
+        rawCount,
         outputCount: 0,
         preset: args.preset,
         alphaLow: args.alphaLow,
@@ -1141,6 +1233,15 @@ async function runBatchCutout(args: {
       }
     }
   } else {
+    reportProgress({
+      taskId,
+      stage: 'rembg',
+      message: '正在自动去背景。',
+      inputCount,
+      rawCount: 0,
+      outputCount: 0,
+      outputDir
+    })
     rembgResult = await runCommand(
       runtimePaths.pythonExe,
       [
@@ -1157,14 +1258,27 @@ async function runBatchCutout(args: {
     )
 
     if (rembgResult.code !== 0) {
+      const rawCount = await countPngFiles(rawDir)
+      const debugMessage = formatCommandDebug('自动去背景', rembgResult)
+      reportProgress({
+        taskId,
+        stage: 'error',
+        message: '自动去背景没有完成。请检查输入帧是否能正常打开，或查看详情。',
+        inputCount,
+        rawCount,
+        outputCount: 0,
+        outputDir,
+        debugMessage
+      })
       return {
         ok: false,
-        message: 'rembg 批量抠图失败。',
+        message: '自动去背景没有完成。请检查输入帧是否能正常打开，或查看详情。',
+        debugMessage,
         inputDir,
         rawDir,
         outputDir,
         inputCount,
-        rawCount: await countPngFiles(rawDir),
+        rawCount,
         outputCount: 0,
         preset: args.preset,
         alphaLow: args.alphaLow,
@@ -1176,12 +1290,33 @@ async function runBatchCutout(args: {
 
     const inputFiles = await listPngFileNames(inputDir)
     const rawFiles = await listPngFileNames(rawDir)
+    reportProgress({
+      taskId,
+      stage: 'postprocess',
+      message: `自动去背景完成，Raw ${rawFiles.length} 张，开始修边。`,
+      inputCount,
+      rawCount: rawFiles.length,
+      outputCount: 0,
+      outputDir
+    })
 
     await writeRawManifest({
       inputDir,
       rawDir,
       inputFiles,
       rawFiles
+    })
+  }
+
+  if (skipRembg) {
+    reportProgress({
+      taskId,
+      stage: 'postprocess',
+      message: 'Raw 缓存校验通过，开始修边。',
+      inputCount,
+      rawCount: await countPngFiles(rawDir),
+      outputCount: 0,
+      outputDir
     })
   }
 
@@ -1211,9 +1346,24 @@ async function runBatchCutout(args: {
   const outputCount = await countPngFiles(outputDir)
 
   if (postprocessResult.code !== 0) {
+    const debugMessage = joinDebugDetails(
+      formatCommandDebug('自动去背景', rembgResult),
+      formatCommandDebug('修边', postprocessResult)
+    )
+    reportProgress({
+      taskId,
+      stage: 'error',
+      message: '修边处理没有完成。请查看详情后再重试。',
+      inputCount,
+      rawCount,
+      outputCount,
+      outputDir,
+      debugMessage
+    })
     return {
       ok: false,
-      message: 'postprocess 后处理失败。',
+      message: '修边处理没有完成。请查看详情后再重试。',
+      debugMessage,
       inputDir,
       rawDir,
       outputDir,
@@ -1228,6 +1378,27 @@ async function runBatchCutout(args: {
     }
   }
 
+  const countMismatchDebugMessage =
+    inputCount === outputCount
+      ? ''
+      : `输入输出数量不一致。输入 ${inputCount} 张，Raw ${rawCount} 张，输出 ${outputCount} 张。`
+
+  reportProgress({
+    taskId,
+    stage: inputCount === outputCount ? 'done' : 'error',
+    message:
+      inputCount === outputCount
+        ? skipRembg
+          ? '只重跑边缘完成。'
+          : '批量处理完成。'
+        : '处理结束，但输出数量和输入数量不一致。请检查输出目录后重试。',
+    inputCount,
+    rawCount,
+    outputCount,
+    outputDir,
+    debugMessage: countMismatchDebugMessage
+  })
+
   return {
     ok: inputCount === outputCount,
     message:
@@ -1235,7 +1406,8 @@ async function runBatchCutout(args: {
         ? skipRembg
           ? '只重跑边缘完成，输入输出数量一致。'
           : '处理完成，输入输出数量一致。'
-        : '处理完成，但输入输出数量不一致。',
+        : '处理结束，但输出数量和输入数量不一致。请检查输出目录后重试。',
+    debugMessage: countMismatchDebugMessage,
     inputDir,
     rawDir,
     outputDir,
@@ -1472,13 +1644,35 @@ ipcMain.handle('process:run-single-cutout', async (_event, args) => {
   }
 })
 
-ipcMain.handle('process:run-batch-cutout', async (_event, args) => {
+ipcMain.handle('process:run-batch-cutout', async (event, args) => {
   try {
-    return await runBatchCutout(args)
+    return await runBatchCutout({
+      ...args,
+      onProgress: (payload) => {
+        event.sender.send('process:batch-progress', payload)
+      }
+    })
   } catch (error) {
+    const message = '批处理遇到未知错误。详情里保留了技术信息。'
+    const debugMessage = error instanceof Error ? error.stack ?? error.message : String(error)
+
+    if (args?.taskId) {
+      event.sender.send('process:batch-progress', {
+        taskId: args.taskId,
+        stage: 'error',
+        message,
+        inputCount: 0,
+        rawCount: 0,
+        outputCount: 0,
+        outputDir: '',
+        debugMessage
+      })
+    }
+
     return {
       ok: false,
-      message: error instanceof Error ? error.message : String(error),
+      message,
+      debugMessage,
       inputDir: args?.inputDir ?? '',
       rawDir: '',
       outputDir: '',

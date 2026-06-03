@@ -28,6 +28,49 @@ function New-ResizedBitmap {
     return $bitmap
 }
 
+function New-SharpenedBitmap {
+    param(
+        [System.Drawing.Bitmap]$SourceBitmap,
+        [double]$Amount = 0.45
+    )
+
+    $width = $SourceBitmap.Width
+    $height = $SourceBitmap.Height
+    $bitmap = New-Object System.Drawing.Bitmap $width, $height, ([System.Drawing.Imaging.PixelFormat]::Format32bppArgb)
+
+    for ($y = 0; $y -lt $height; $y++) {
+        for ($x = 0; $x -lt $width; $x++) {
+            if ($x -eq 0 -or $y -eq 0 -or $x -eq ($width - 1) -or $y -eq ($height - 1)) {
+                $bitmap.SetPixel($x, $y, $SourceBitmap.GetPixel($x, $y))
+                continue
+            }
+
+            $center = $SourceBitmap.GetPixel($x, $y)
+            if ($center.A -eq 0) {
+                $bitmap.SetPixel($x, $y, $center)
+                continue
+            }
+
+            $left = $SourceBitmap.GetPixel($x - 1, $y)
+            $right = $SourceBitmap.GetPixel($x + 1, $y)
+            $top = $SourceBitmap.GetPixel($x, $y - 1)
+            $bottom = $SourceBitmap.GetPixel($x, $y + 1)
+
+            $blurR = ($left.R + $right.R + $top.R + $bottom.R) / 4.0
+            $blurG = ($left.G + $right.G + $top.G + $bottom.G) / 4.0
+            $blurB = ($left.B + $right.B + $top.B + $bottom.B) / 4.0
+
+            $r = [Math]::Max(0, [Math]::Min(255, [int]($center.R + (($center.R - $blurR) * $Amount))))
+            $g = [Math]::Max(0, [Math]::Min(255, [int]($center.G + (($center.G - $blurG) * $Amount))))
+            $b = [Math]::Max(0, [Math]::Min(255, [int]($center.B + (($center.B - $blurB) * $Amount))))
+
+            $bitmap.SetPixel($x, $y, [System.Drawing.Color]::FromArgb($center.A, $r, $g, $b))
+        }
+    }
+
+    return $bitmap
+}
+
 function Get-DibBytes {
     param(
         [System.Drawing.Bitmap]$Bitmap
@@ -103,15 +146,18 @@ function Write-Ico {
 
     foreach ($size in $sizes) {
         $bitmap = New-ResizedBitmap -SourceImage $SourceImage -Size $size
-        $bytes = if ($size -ge 128) {
-            Get-PngBytes -Bitmap $bitmap
+        $iconBitmap = $bitmap
+        if ($size -le 128) {
+            $iconBitmap = New-SharpenedBitmap -SourceBitmap $bitmap -Amount 0.55
         }
-        else {
-            Get-DibBytes -Bitmap $bitmap
-        }
+
+        $bytes = Get-PngBytes -Bitmap $iconBitmap
         $images += [PSCustomObject]@{
             Size = $size
             Bytes = $bytes
+        }
+        if ($iconBitmap -ne $bitmap) {
+            $iconBitmap.Dispose()
         }
         $bitmap.Dispose()
     }

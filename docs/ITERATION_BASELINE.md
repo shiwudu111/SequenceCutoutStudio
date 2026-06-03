@@ -2,7 +2,7 @@
 
 版本定位：第一版内测绿色包已通过，进入发布流程固化与下一轮功能开发准备
 
-当前阶段：Phase 4B 预览体验与帧导航已收口，下一阶段进入 Phase 4C 任务队列与批处理稳定化
+当前阶段：Phase 4C 任务队列与批处理稳定化已收口，下一阶段进入 Phase 4D 导出系统
 
 基线日期：2026-05-28
 
@@ -129,9 +129,9 @@ Phase 3D-3：自动化构建                     已完成基础闭环
 Phase 3D-3B：稳定基线归档与构建文档        已完成
 Phase 3D-5：版本号与发布规范                已完成
 Phase 3D-4：启动体验与真实自检增强          已完成
-Phase 4A：工程系统 Project System          已完成
+Phase 4A：工程系统 Project System          已废弃前端入口
 Phase 4B：预览体验与帧导航                  已完成
-Phase 4C：任务队列与批处理稳定化            下一阶段
+Phase 4C：任务队列与批处理稳定化            已完成
 Phase 4D：导出系统
 Phase 4E：缓存系统
 Phase 4F：处理效果增强
@@ -190,6 +190,17 @@ Phase 5：正式发布包装
 [ ] 失败提示整理
 [ ] 构建日志说明
 [ ] 版本号接入
+```
+
+图标固定规则：
+
+```text
+[x] build/icon.ico 必须包含 16 / 24 / 32 / 40 / 48 / 64 / 96 / 128 / 256 全尺寸
+[x] 所有 icon 尺寸必须使用 PNG 条目，避免 Explorer 使用低清 DIB 小图
+[x] 128px 以下小尺寸在生成时做锐化处理，保证 Explorer 常用的 48 / 64 / 96 显示清晰
+[x] launcher 构建后必须同时替换 MAINICON 和 32512 两个 icon group
+[x] build-internal.ps1 必须验证最终 exe 可提取 48 / 64 / 256 图标
+[x] 构建后刷新 shell icon cache；如资源管理器仍显示旧图，重启 Explorer
 ```
 
 ---
@@ -337,45 +348,38 @@ SequenceCutoutStudio-Internal-v0.4.0-internal.1-win-x64.zip
 
 # Phase 4A：工程系统 Project System
 
-状态：已完成。
+状态：已废弃前端入口。
 
-目标：从“处理一个文件或文件夹”升级为“管理一个素材处理工程”。
+结论：当前产品定位仍是偏功能向的本地工具，不追求大而全。工程概念会让软件显得过重，并和“打开视频 / 打开序列帧 / 保存参数”的轻量流程产生心智冲突。
 
-需要完成：
+已废弃内容：
 
 ```text
-[x] 新建工程
-[x] 打开工程
-[x] 保存工程
-[x] 最近工程列表
-[x] 导入视频到工程
-[x] 导入序列帧到工程
-[x] 保存处理参数
-[x] 保存预览设置
-[x] 保存输出记录
+[x] 前端移除工程管理入口
+[x] 前端移除新建工程
+[x] 前端移除打开工程
+[x] 前端移除保存工程
+[x] 前端移除最近工程列表
+[x] preload / renderer 类型不再暴露工程 API
 ```
 
-推荐工程结构：
+当前保留：
 
 ```text
-MyProject/
-├─ project.json
-├─ source/
-├─ cache/
-├─ output/
-├─ temp/
-├─ thumbnails/
-└─ masks/
+[x] 打开视频
+[x] 打开序列帧
+[x] 视频切帧
+[x] 保存参数 / 读取参数
 ```
 
 阶段回顾：
 
 ```text
-目标是否完成：已完成第一版工程系统。
-实际完成：新增 project.json 工程文件；新建 / 打开 / 保存工程；最近工程列表；工程目录自动创建 source/cache/output/temp/thumbnails/masks；工程内保存素材路径、处理参数、预览设置和输出目录记录。
-验证命令：tsc --noEmit 通过；npm.cmd run build 通过；build-internal.ps1 提权后通过。
+目标是否完成：已重新评估并废弃前端入口。
+实际完成：移除工程管理 UI；保留打开视频、打开序列帧和保存参数；避免用户把轻量工具理解成项目管理软件。
+验证命令：tsc --noEmit 通过；npm.cmd run build 通过；build-internal.ps1 通过。
 绿色包验证：rembg / onnxruntime / PIL / numpy import 通过。
-产物：release/SequenceCutoutStudio-Internal-v0.4.0-internal.1-win-x64.zip，约 553.78 MB。
+产物：release/SequenceCutoutStudio-Internal-v0.4.0-internal.1-win-x64.zip，约 553.81 MB。
 稳定链路影响：不改变 portable Python / rembg_runner / postprocess 链路。
 下个阶段唯一主目标：Phase 4B 预览体验与帧导航。
 ```
@@ -404,7 +408,7 @@ MyProject/
 [x] Raw / Soft 对比图保持同坐标、同比例叠加
 [x] 宽屏 / 标准窗口 / 小窗口响应式断点
 [x] 日志区域限制高度并内部滚动
-[x] 左侧当前阶段 / 当前工程 / 环境自检信息上移
+[x] 左侧当前阶段 / 环境自检信息上移
 ```
 
 完成标准：
@@ -427,7 +431,7 @@ MyProject/
 
 ```text
 目标是否完成：已完成。
-实际完成：预览区响应式布局；Raw / Soft 滑块对比；双击预览弹出大图；大图支持滚轮缩放、拖动和还原；帧导航改为标尺 + 游标，避免大量缩略图挤压界面；进一步修正不同窗口尺寸下的三列 / 两列 / 单列布局；修正原图、Raw、Soft 预览不完整显示问题；修正 Raw / Soft 对比左右比例不一致问题；压缩日志高度并改为内部滚动；左侧当前阶段、当前工程、环境自检信息不再沉底。
+实际完成：预览区响应式布局；Raw / Soft 滑块对比；双击预览弹出大图；大图支持滚轮缩放、拖动和还原；帧导航改为标尺 + 游标，避免大量缩略图挤压界面；进一步修正不同窗口尺寸下的三列 / 两列 / 单列布局；修正原图、Raw、Soft 预览不完整显示问题；修正 Raw / Soft 对比左右比例不一致问题；压缩日志高度并改为内部滚动；左侧当前阶段和环境自检信息不再沉底。
 验证命令：tsc --noEmit 通过；npm.cmd run build 通过；build-internal.ps1 提权后通过。
 绿色包验证：rembg / onnxruntime / PIL / numpy import 通过。
 产物：release/SequenceCutoutStudio-Internal-v0.4.0-internal.1-win-x64.zip，约 553.78 MB。
@@ -439,21 +443,48 @@ MyProject/
 
 # Phase 4C：任务队列与批处理稳定化
 
-状态：当前阶段。
+状态：已完成。
 
 目标：让批量处理更稳定、更可控，避免用户误以为软件卡死。
 
 需要完成：
 
 ```text
-[ ] 批处理任务面板
+[x] 批处理状态条
+[x] 显示批处理阶段：准备处理 / 自动去背景 / 修边处理中 / 已完成 / 处理失败
+[x] 显示输出数量 / 总数量
+[x] 显示失败数量
+[x] 批处理状态放在左侧栏：当前阶段、环境自检之后
+[x] 日志区保持纯日志，不放大块任务面板
+[x] 失败信息人话化：输入为空 / Raw 缓存不匹配 / 自动去背景失败 / 修边失败 / 数量不一致 / 未知失败
+[x] 失败详情保留技术日志，放在日志详情里
 [ ] 显示当前处理帧
-[ ] 显示已完成数量 / 总数量
-[ ] 显示失败数量
 [ ] 显示预计剩余时间，可选
-[ ] 失败任务可查看错误
 [ ] 支持取消任务
 [ ] 支持失败后继续处理，可选
+```
+
+当前实现边界：
+
+```text
+主进程通过 process:batch-progress 向前端发送阶段事件。
+前端只显示紧凑状态条，不做完整任务队列。
+当前还没有逐帧实时进度，也没有取消任务。
+后续若要支持取消，需要改 runCommand 子进程生命周期和 IPC 协议。
+```
+
+阶段回顾：
+
+```text
+目标是否完成：已完成 Phase 4C 收口。
+实际完成：批处理状态条；阶段状态显示；输入 / Raw / 输出 / 失败数量显示；日志区保持纯日志；失败信息按输入为空、Raw 缓存不匹配、自动去背景失败、修边失败、数量不一致、未知失败转成人话提示；技术细节保留在失败详情日志里。
+本次最后一步：只完成“失败信息人话化”，没有做取消任务、逐帧进度、完整任务队列、架构调整或无关重构。
+验证命令：tsc --noEmit 通过；npm.cmd run build 通过；build-internal.ps1 提权后通过。
+绿色包验证：rembg / onnxruntime / PIL / numpy import 通过。
+.venv 检查：release/SequenceCutoutStudio-Internal/app/resources/portable-root/tools/rembg/.venv 不存在。
+产物：release/SequenceCutoutStudio-Internal-v0.4.0-internal.1-win-x64.zip，约 553.83 MB。
+稳定链路影响：不改变 portable Python / rembg_runner / postprocess 调用链路，不恢复 .venv，不调用 rembg.exe。
+下个阶段唯一主目标：Phase 4D 导出系统。
 ```
 
 ---

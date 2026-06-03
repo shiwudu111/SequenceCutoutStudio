@@ -31,12 +31,42 @@ contextBridge.exposeInMainWorld('cutoutAPI', {
   }) => ipcRenderer.invoke('process:run-single-cutout', args),
 
   runBatchCutout: (args: {
+    taskId?: string
     inputDir: string
     preset: 'C' | 'F' | 'I' | 'Custom'
     alphaLow: number
     shrink: number
     skipRembg?: boolean
   }) => ipcRenderer.invoke('process:run-batch-cutout', args),
+
+  onBatchProgress: (callback: (event: {
+    taskId: string
+    stage: 'prepare' | 'rembg' | 'postprocess' | 'done' | 'error'
+    message: string
+    inputCount?: number
+    rawCount?: number
+    outputCount?: number
+    outputDir?: string
+    debugMessage?: string
+  }) => void) => {
+    const listener = (_event: Electron.IpcRendererEvent, payload: {
+      taskId: string
+      stage: 'prepare' | 'rembg' | 'postprocess' | 'done' | 'error'
+      message: string
+      inputCount?: number
+      rawCount?: number
+      outputCount?: number
+      outputDir?: string
+      debugMessage?: string
+    }) => {
+      callback(payload)
+    }
+
+    ipcRenderer.on('process:batch-progress', listener)
+    return () => {
+      ipcRenderer.removeListener('process:batch-progress', listener)
+    }
+  },
 
   readImageAsDataUrl: (filePath: string) =>
     ipcRenderer.invoke('preview:read-image-data-url', filePath),

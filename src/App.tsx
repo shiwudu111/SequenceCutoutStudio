@@ -41,10 +41,13 @@ type BatchTask = {
   failedCount: number
   currentStage: string
   message: string
+  debugMessage?: string
   outputDir: string
   startedAt: number
   endedAt?: number
 }
+
+type BatchProgressStage = 'prepare' | 'rembg' | 'postprocess' | 'done' | 'error'
 
 const EDGE_PRESET_PARAMS: Record<Exclude<Preset, 'Custom'>, EdgePresetParams> = {
   C: {
@@ -124,6 +127,7 @@ function App(): JSX.Element {
   const [lightboxDragStart, setLightboxDragStart] = useState({ x: 0, y: 0 })
   const previewCacheRef = useRef<Map<string, string>>(new Map())
   const lightboxImageRef = useRef<HTMLImageElement | null>(null)
+  const logsRef = useRef<HTMLDivElement | null>(null)
   const [logs, setLogs] = useState<string[]>([
     'Sequence Cutout Studio 已启动。',
     '当前阶段：Phase 4C - 任务队列与批处理稳定化。'
@@ -133,17 +137,11 @@ function App(): JSX.Element {
     setLogs((prev) => [...prev, line])
   }
 
-  const formatTaskDuration = (task: BatchTask): string => {
-    const endedAt = task.endedAt ?? Date.now()
-    const seconds = Math.max(0, Math.round((endedAt - task.startedAt) / 1000))
-    if (seconds < 60) {
-      return `${seconds} 秒`
+  useEffect(() => {
+    if (logsRef.current) {
+      logsRef.current.scrollTop = logsRef.current.scrollHeight
     }
-
-    const minutes = Math.floor(seconds / 60)
-    const restSeconds = seconds % 60
-    return `${minutes} 分 ${restSeconds} 秒`
-  }
+  }, [logs])
 
   const getBatchTaskTitle = (task: BatchTask): string => {
     if (task.mode === 'edge') {
@@ -165,10 +163,59 @@ function App(): JSX.Element {
     return `${Math.min(100, Math.round((task.outputCount / task.totalCount) * 100))}%`
   }
 
+  const getBatchStageLabel = (stage: BatchProgressStage): string => {
+    if (stage === 'prepare') {
+      return '准备处理'
+    }
+    if (stage === 'rembg') {
+      return '自动去背景'
+    }
+    if (stage === 'postprocess') {
+      return '修边处理中'
+    }
+    if (stage === 'done') {
+      return '已完成'
+    }
+
+    return '处理失败'
+  }
+
   useEffect(() => {
     void window.cutoutAPI.getAppInfo().then((info) => {
       setAppVersion(info.version)
       appendLog(`当前版本：v${info.version}`)
+    })
+  }, [])
+
+  useEffect(() => {
+    return window.cutoutAPI.onBatchProgress((event) => {
+      setBatchTask((current) => {
+        if (!current || current.id !== event.taskId) {
+          return current
+        }
+
+        const totalCount = event.inputCount ?? current.totalCount
+        const rawCount = event.rawCount ?? current.rawCount
+        const outputCount = event.outputCount ?? current.outputCount
+        const failedCount =
+          event.stage === 'error'
+            ? Math.max(0, totalCount - outputCount)
+            : current.failedCount
+
+        return {
+          ...current,
+          status: event.stage === 'done' ? 'done' : event.stage === 'error' ? 'error' : 'running',
+          totalCount,
+          rawCount,
+          outputCount,
+          failedCount,
+          currentStage: getBatchStageLabel(event.stage),
+          message: event.message,
+          debugMessage: event.debugMessage ?? current.debugMessage,
+          outputDir: event.outputDir ?? current.outputDir,
+          endedAt: event.stage === 'done' || event.stage === 'error' ? Date.now() : current.endedAt
+        }
+      })
     })
   }, [])
 
@@ -1030,6 +1077,7 @@ function App(): JSX.Element {
 
     try {
       const result = await window.cutoutAPI.runBatchCutout({
+        taskId,
         inputDir: selectedFolder,
         preset,
         alphaLow,
@@ -1049,6 +1097,7 @@ function App(): JSX.Element {
             failedCount,
             currentStage: result.ok ? '已完成' : '处理失败',
             message: result.message ?? (result.ok ? '处理完成。' : '处理失败。'),
+            debugMessage: result.debugMessage,
             outputDir: result.outputDir,
             endedAt: Date.now()
           }
@@ -1061,7 +1110,10 @@ function App(): JSX.Element {
       appendLog(`输出数量：${result.outputCount}`)
 
       if (!result.ok) {
-        appendLog('处理失败日志：')
+        appendLog('处理失败详情：')
+        if (result.debugMessage?.trim()) {
+          appendLog(result.debugMessage.trim())
+        }
         if (result.rembgLog.trim()) {
           appendLog(result.rembgLog.trim())
         }
@@ -1083,7 +1135,8 @@ function App(): JSX.Element {
 
       appendLog('批量处理完成。')
     } catch (error) {
-      const message = error instanceof Error ? error.message : String(error)
+      const message = '批处理遇到未知错误。详情里保留了技术信息。'
+      const debugMessage = error instanceof Error ? error.stack ?? error.message : String(error)
       setBatchTask((current) =>
         current?.id === taskId
           ? {
@@ -1092,11 +1145,14 @@ function App(): JSX.Element {
             failedCount: current.totalCount,
             currentStage: '处理失败',
             message,
+            debugMessage,
             endedAt: Date.now()
           }
           : current
       )
       appendLog(`处理失败：${message}`)
+      appendLog('处理失败详情：')
+      appendLog(debugMessage)
     } finally {
       setIsProcessing(false)
     }
@@ -1211,6 +1267,47 @@ function App(): JSX.Element {
             </div>
           ) : null}
         </div>
+
+        {batchTask ? (
+          <div className={`sidebar-batch-status ${batchTask.status}`}>
+            <div className="sidebar-batch-header">
+              <span>批处理状态</span>
+              <strong>
+                {batchTask.status === 'running'
+                  ? '处理中'
+                  : batchTask.status === 'done'
+                    ? '完成'
+                    : '失败'}
+              </strong>
+            </div>
+            <div className="sidebar-batch-title">
+              <strong>{getBatchTaskTitle(batchTask)}</strong>
+              <span>{batchTask.currentStage}</span>
+            </div>
+            <div className="sidebar-batch-message" title={batchTask.message}>
+              {batchTask.message}
+            </div>
+            <div className="sidebar-batch-progress">
+              <span style={{ width: getBatchTaskProgressWidth(batchTask) }} />
+            </div>
+            <div className="sidebar-batch-meta">
+              <span>
+                输出 {batchTask.outputCount} / {batchTask.totalCount}
+              </span>
+              <span>Raw {batchTask.rawCount}</span>
+              <span>失败 {batchTask.failedCount}</span>
+            </div>
+            <button
+              className="sidebar-batch-open"
+              onClick={() => {
+                void window.cutoutAPI.openFolder(batchTask.outputDir)
+              }}
+              disabled={!batchTask.outputDir}
+            >
+              打开输出
+            </button>
+          </div>
+        ) : null}
       </aside>
 
       <section className="workspace">
@@ -1697,82 +1794,7 @@ function App(): JSX.Element {
               <span>Logs</span>
             </div>
 
-            <div className="batch-task-section-title">
-              <div>
-                <h4>批处理任务</h4>
-                <p>显示当前批量处理或只重跑边缘的执行状态。</p>
-              </div>
-            </div>
-
-            {batchTask ? (
-              <div className={`batch-task-card ${batchTask.status}`}>
-                <div className="batch-task-header">
-                  <div>
-                    <span className="batch-task-kicker">当前任务</span>
-                    <strong>{getBatchTaskTitle(batchTask)}</strong>
-                  </div>
-                  <span className="batch-task-status">
-                    {batchTask.status === 'running'
-                      ? '处理中'
-                      : batchTask.status === 'done'
-                        ? '已完成'
-                        : '失败'}
-                  </span>
-                </div>
-
-                <div className="batch-task-message">{batchTask.message}</div>
-
-                <div className="batch-task-progress">
-                  <span
-                    style={{
-                      width: getBatchTaskProgressWidth(batchTask)
-                    }}
-                  />
-                </div>
-
-                <div className="batch-task-stats">
-                  <div>
-                    <span>阶段</span>
-                    <strong>{batchTask.currentStage}</strong>
-                  </div>
-                  <div>
-                    <span>输入</span>
-                    <strong>{batchTask.totalCount}</strong>
-                  </div>
-                  <div>
-                    <span>Raw</span>
-                    <strong>{batchTask.rawCount}</strong>
-                  </div>
-                  <div>
-                    <span>输出</span>
-                    <strong>{batchTask.outputCount}</strong>
-                  </div>
-                  <div>
-                    <span>失败</span>
-                    <strong>{batchTask.failedCount}</strong>
-                  </div>
-                  <div>
-                    <span>耗时</span>
-                    <strong>{formatTaskDuration(batchTask)}</strong>
-                  </div>
-                </div>
-
-                <div className="batch-task-footer">
-                  <span>{batchTask.inputDir}</span>
-                  <button
-                    className="secondary-button"
-                    onClick={() => {
-                      void window.cutoutAPI.openFolder(batchTask.outputDir)
-                    }}
-                    disabled={!batchTask.outputDir}
-                  >
-                    打开任务输出
-                  </button>
-                </div>
-              </div>
-            ) : null}
-
-            <div className="logs">
+            <div className="logs" ref={logsRef}>
               {logs.map((line, index) => (
                 <div key={`${line}-${index}`} className="log-line">
                   {line}
