@@ -2,7 +2,7 @@
 
 版本定位：第一版内测绿色包已通过，进入发布流程固化与下一轮功能开发准备
 
-当前阶段：Phase 4C 任务队列与批处理稳定化已收口，下一阶段进入 Phase 4D 导出系统
+当前阶段：Phase 4D 导出系统已收口，下一阶段进入 Phase 4E 缓存系统
 
 基线日期：2026-05-28
 
@@ -65,7 +65,7 @@ C# launcher 启动
 [x] 主程序启动通过
 [x] portable Python / rembg / onnxruntime / PIL / numpy import 通过
 [x] 旧 .venv 未进入发布包
-[x] zip 体积约 553.78 MB，属于合理范围
+[x] zip 体积约 553.83 MB，属于合理范围
 [x] 新 icon 已进入最终 release 包
 [x] 干净电脑打开压缩包验收通过
 ```
@@ -132,7 +132,7 @@ Phase 3D-4：启动体验与真实自检增强          已完成
 Phase 4A：工程系统 Project System          已废弃前端入口
 Phase 4B：预览体验与帧导航                  已完成
 Phase 4C：任务队列与批处理稳定化            已完成
-Phase 4D：导出系统
+Phase 4D：导出系统                         已完成
 Phase 4E：缓存系统
 Phase 4F：处理效果增强
 Phase 5：正式发布包装
@@ -491,7 +491,7 @@ SequenceCutoutStudio-Internal-v0.4.0-internal.1-win-x64.zip
 
 # Phase 4D：导出系统
 
-状态：进行中，Phase 4D-3 已完成。
+状态：已完成。
 
 目标：让处理结果更方便进入游戏开发流程。
 
@@ -549,6 +549,20 @@ Phase 4D-3 阶段回顾：
 当前策略：软件自动在 Soft 目录旁创建 exports/素材名_transparent_png_时间戳。
 ```
 
+Phase 4D 最终收口：
+
+```text
+目标是否完成：已完成。
+实际完成：透明 PNG 序列导出；自动创建 exports 导出目录；命名前缀 / 起始编号 / 补零位数；manifest.json 记录导出映射；规避 Windows 原生目录选择框新建文件夹闪崩。
+最终边界：正式版前不继续扩展 Sprite Sheet / TexturePacker JSON / Cocos plist / Unity 目录；这些作为正式版后的高级导出迭代。
+验证命令：tsc --noEmit 通过；npm.cmd run build 通过；build-internal.ps1 通过。
+绿色包验证：rembg / onnxruntime / PIL / numpy import 通过。
+.venv 检查：release/SequenceCutoutStudio-Internal/app/resources/portable-root/tools/rembg/.venv 不存在。
+产物：release/SequenceCutoutStudio-Internal-v0.4.0-internal.1-win-x64.zip，约 553.83 MB。
+稳定链路影响：不改变 portable Python / rembg_runner / postprocess 调用链路，不恢复 .venv，不调用 rembg.exe。
+下个阶段唯一主目标：Phase 4E 缓存系统。
+```
+
 后续可扩展导出：
 
 ```text
@@ -566,7 +580,7 @@ Phase 4D-3 阶段回顾：
 
 # Phase 4E：缓存系统
 
-状态：后续阶段。
+状态：下一阶段。
 
 目标：减少重复处理，提高处理效率。
 
@@ -586,6 +600,15 @@ source + model + params -> cache key
 [ ] 缓存命中提示
 [ ] 清理缓存功能
 [ ] 缓存占用大小显示
+```
+
+Phase 4E-1 建议目标：
+
+```text
+只做缓存状态识别与提示，不改变处理链路。
+目标：识别当前输入目录旁是否已有可用 Raw 缓存和 Soft 输出，并在界面/日志里清楚提示。
+不做：自动跳过处理、不做缓存清理、不做 hash 命中、不改 rembg / postprocess 调用链路。
+验收：tsc --noEmit；npm.cmd run build。
 ```
 
 ---
