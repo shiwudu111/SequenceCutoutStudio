@@ -597,6 +597,55 @@ async function scanFrameFolder(folderPath: string) {
   }
 }
 
+async function inspectCacheStatus(args: {
+  inputDir: string
+  preset: 'C' | 'F' | 'I' | 'Custom'
+}) {
+  const inputDir = path.resolve(args.inputDir)
+  const parentDir = path.dirname(inputDir)
+  const inputName = path.basename(inputDir)
+  const rawDir = path.join(parentDir, `${inputName}_general_raw`)
+  const softDir = path.join(parentDir, `${inputName}_soft_${args.preset}`)
+  const inputCount = await countPngFiles(inputDir)
+  const rawCount = await countPngFiles(rawDir)
+  const softCount = await countPngFiles(softDir)
+  const rawValidation = await validateRawManifest({
+    inputDir,
+    rawDir
+  })
+  const rawStatus = rawValidation.ok ? 'ready' : rawCount > 0 ? 'mismatch' : 'missing'
+  const softStatus =
+    inputCount > 0 && softCount === inputCount
+      ? 'ready'
+      : softCount > 0
+        ? 'incomplete'
+        : 'missing'
+
+  return {
+    ok: true,
+    inputDir,
+    preset: args.preset,
+    rawDir,
+    softDir,
+    inputCount,
+    rawCount,
+    softCount,
+    rawStatus,
+    softStatus,
+    rawMessage: rawValidation.ok
+      ? `Raw 缓存可用，共 ${rawCount} 张。`
+      : rawCount > 0
+        ? 'Raw 缓存和当前输入不匹配。'
+        : '没有发现 Raw 缓存。',
+    softMessage:
+      softStatus === 'ready'
+        ? `Soft 输出完整，共 ${softCount} 张。`
+        : softStatus === 'incomplete'
+          ? `Soft 输出不完整，输入 ${inputCount} 张，Soft ${softCount} 张。`
+          : '没有发现 Soft 输出。'
+  }
+}
+
 async function readImageAsDataUrl(filePath: string) {
   const resolvedPath = path.resolve(filePath)
   const buffer = await fs.readFile(resolvedPath)
@@ -1766,6 +1815,28 @@ ipcMain.handle('frames:scan-folder', async (_event, folderPath: string) => {
       message: error instanceof Error ? error.message : String(error),
       pngCount: 0,
       files: []
+    }
+  }
+})
+
+ipcMain.handle('cache:inspect-status', async (_event, args) => {
+  try {
+    return await inspectCacheStatus(args)
+  } catch (error) {
+    return {
+      ok: false,
+      message: error instanceof Error ? error.message : String(error),
+      inputDir: args?.inputDir ?? '',
+      preset: args?.preset ?? 'I',
+      rawDir: '',
+      softDir: '',
+      inputCount: 0,
+      rawCount: 0,
+      softCount: 0,
+      rawStatus: 'missing',
+      softStatus: 'missing',
+      rawMessage: '缓存状态读取失败。',
+      softMessage: '缓存状态读取失败。'
     }
   }
 })

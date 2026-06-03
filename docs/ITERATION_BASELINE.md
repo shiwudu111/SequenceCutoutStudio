@@ -2,7 +2,7 @@
 
 版本定位：第一版内测绿色包已通过，进入发布流程固化与下一轮功能开发准备
 
-当前阶段：Phase 4D 导出系统已收口，下一阶段进入 Phase 4E 缓存系统
+当前阶段：Phase 4E 缓存系统推进中
 
 基线日期：2026-05-28
 
@@ -133,7 +133,7 @@ Phase 4A：工程系统 Project System          已废弃前端入口
 Phase 4B：预览体验与帧导航                  已完成
 Phase 4C：任务队列与批处理稳定化            已完成
 Phase 4D：导出系统                         已完成
-Phase 4E：缓存系统
+Phase 4E：缓存系统                         进行中
 Phase 4F：处理效果增强
 Phase 5：正式发布包装
 ```
@@ -580,7 +580,7 @@ Phase 4D 最终收口：
 
 # Phase 4E：缓存系统
 
-状态：下一阶段。
+状态：进行中，Phase 4E-1 已完成。
 
 目标：减少重复处理，提高处理效率。
 
@@ -593,6 +593,8 @@ source + model + params -> cache key
 需要完成：
 
 ```text
+[x] 缓存状态识别
+[x] 缓存状态提示
 [ ] 原始素材 hash
 [ ] 参数 hash
 [ ] Raw 缓存管理
@@ -609,6 +611,18 @@ Phase 4E-1 建议目标：
 目标：识别当前输入目录旁是否已有可用 Raw 缓存和 Soft 输出，并在界面/日志里清楚提示。
 不做：自动跳过处理、不做缓存清理、不做 hash 命中、不改 rembg / postprocess 调用链路。
 验收：tsc --noEmit；npm.cmd run build。
+```
+
+Phase 4E-1 阶段回顾：
+
+```text
+目标是否完成：已完成。
+实际完成：扫描序列帧或切换 preset 后，只读检查当前输入目录旁的 Raw 缓存和 Soft 输出；左侧栏显示 Raw / Soft 状态、数量；日志提示 Raw 缓存是否可用、Soft 输出是否完整。
+本阶段边界：没有自动跳过处理，没有做缓存清理，没有做 hash 命中，没有改 rembg / postprocess 调用链路。
+验证命令：tsc --noEmit 通过；npm.cmd run build 通过。
+绿色包验证：本次未重新打包，不涉及 portable Python / rembg / postprocess 链路修改。
+稳定链路影响：不改变 portable Python / rembg_runner / postprocess 调用链路，不恢复 .venv，不调用 rembg.exe。
+下个阶段唯一主目标：Phase 4E-2 原始素材 hash 与参数 hash 设计，不先接入自动命中。
 ```
 
 ---

@@ -77,6 +77,24 @@ declare global {
         fileName?: string
     }
 
+    type CacheStatusKind = 'ready' | 'missing' | 'mismatch' | 'incomplete'
+
+    type CacheStatusResult = {
+        ok: boolean
+        message?: string
+        inputDir: string
+        preset: CutoutPreset
+        rawDir: string
+        softDir: string
+        inputCount: number
+        rawCount: number
+        softCount: number
+        rawStatus: CacheStatusKind
+        softStatus: CacheStatusKind
+        rawMessage: string
+        softMessage: string
+    }
+
     type ExportTransparentPngSequenceArgs = {
         sourceDir: string
         targetRootDir: string
@@ -215,6 +233,7 @@ declare global {
             getDroppedPath: (file: File) => string
             resolveDroppedPath: (filePath: string) => Promise<ResolveDroppedPathResult>
             scanFrameFolder: (folderPath: string) => Promise<FrameFolderScanResult>
+            inspectCacheStatus: (args: { inputDir: string; preset: CutoutPreset }) => Promise<CacheStatusResult>
             extractVideoFrames: (args: ExtractVideoFramesArgs) => Promise<ExtractVideoFramesResult>
             runSingleCutout: (args: RunSingleCutoutArgs) => Promise<SingleCutoutResult>
             runBatchCutout: (args: RunBatchCutoutArgs) => Promise<BatchCutoutResult>

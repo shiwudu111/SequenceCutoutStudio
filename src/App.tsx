@@ -111,6 +111,7 @@ function App(): JSX.Element {
   })
   const [isProcessing, setIsProcessing] = useState(false)
   const [batchTask, setBatchTask] = useState<BatchTask | null>(null)
+  const [cacheStatus, setCacheStatus] = useState<CacheStatusResult | null>(null)
   const [isTestingSingle, setIsTestingSingle] = useState(false)
   const [isComparing, setIsComparing] = useState(false)
   const [isExporting, setIsExporting] = useState(false)
@@ -134,7 +135,7 @@ function App(): JSX.Element {
   const logsRef = useRef<HTMLDivElement | null>(null)
   const [logs, setLogs] = useState<string[]>([
     'Sequence Cutout Studio 已启动。',
-    '当前阶段：Phase 4D - 导出系统。'
+    '当前阶段：Phase 4E - 缓存系统。'
   ])
 
   const appendLog = (line: string): void => {
@@ -182,6 +183,45 @@ function App(): JSX.Element {
     }
 
     return '处理失败'
+  }
+
+  const getCacheStatusText = (status: CacheStatusKind): string => {
+    if (status === 'ready') {
+      return '可用'
+    }
+    if (status === 'mismatch') {
+      return '不匹配'
+    }
+    if (status === 'incomplete') {
+      return '不完整'
+    }
+
+    return '未发现'
+  }
+
+  const inspectCacheStatus = async (
+    folderPath: string,
+    nextPreset = preset,
+    shouldLog = false
+  ): Promise<void> => {
+    const result = await window.cutoutAPI.inspectCacheStatus({
+      inputDir: folderPath,
+      preset: nextPreset
+    })
+
+    setCacheStatus(result)
+
+    if (!shouldLog) {
+      return
+    }
+
+    if (!result.ok) {
+      appendLog(`缓存状态读取失败：${result.message ?? '未知错误'}`)
+      return
+    }
+
+    appendLog(`缓存状态：${result.rawMessage}`)
+    appendLog(`输出状态：${result.softMessage}`)
   }
 
   useEffect(() => {
@@ -416,6 +456,7 @@ function App(): JSX.Element {
       setLastFrame('-')
       setSameSize('-')
       setAlphaInfo('-')
+      setCacheStatus(null)
       appendLog(`扫描失败：${result.message ?? '未知错误'}`)
       return
     }
@@ -445,6 +486,7 @@ function App(): JSX.Element {
     setKeyFrameIndexes(keyIndexes)
     setRawFolder('')
     setSoftFolder('')
+    setCacheStatus(null)
     setActiveComparePreset(null)
     setCompareItems([])
     setPreviewFrameName(files[0] ?? result.firstFileName ?? '')
@@ -462,6 +504,7 @@ function App(): JSX.Element {
       `Alpha：${result.hasAlpha ? `有 alpha（${result.hasAlphaCount}/${result.pngCount}）` : '无 alpha'}`
     )
     appendLog(`关键帧索引：${keyIndexes.map((index) => index + 1).join(' / ')}`)
+    await inspectCacheStatus(folderPath, preset, true)
 
     if (files.length > 0) {
       await loadFrameByIndex(0, files, folderPath, '', '')
@@ -527,6 +570,7 @@ function App(): JSX.Element {
 
     setRawFolder('')
     setSoftFolder('')
+    setCacheStatus(null)
     setFrameFiles([])
     setCurrentFrameIndex(0)
     setKeyFrameIndexes([])
@@ -889,12 +933,19 @@ function App(): JSX.Element {
     setPreset(nextPreset)
 
     if (nextPreset === 'Custom') {
+      if (selectedFolder) {
+        void inspectCacheStatus(selectedFolder, nextPreset, true)
+      }
       return
     }
 
     const params = EDGE_PRESET_PARAMS[nextPreset]
     setAlphaLow(params.alphaLow)
     setShrink(params.shrink)
+
+    if (selectedFolder) {
+      void inspectCacheStatus(selectedFolder, nextPreset, true)
+    }
   }
   const handleRunSingleCutout = async (): Promise<void> => {
     if (!selectedFolder) {
@@ -1131,6 +1182,7 @@ function App(): JSX.Element {
       setOutputFolder(result.outputDir)
       appendLog(`Raw 目录：${result.rawDir}`)
       appendLog(`输出目录：${result.outputDir}`)
+      await inspectCacheStatus(selectedFolder, preset, true)
 
       if (frameFiles.length > 0) {
         await loadFrameByIndex(currentFrameIndex, frameFiles, selectedFolder, result.rawDir, result.outputDir)
@@ -1273,10 +1325,35 @@ function App(): JSX.Element {
 
         <div className="phase-card">
           <span>当前阶段</span>
-          <strong>Phase 4D</strong>
-          <p>导出透明 PNG 序列并支持命名规则。</p>
+          <strong>Phase 4E</strong>
+          <p>识别 Raw / Soft 缓存状态，不改变处理链路。</p>
           <small>{appVersion ? `v${appVersion}` : '读取版本中...'}</small>
         </div>
+
+        {cacheStatus ? (
+          <div className="cache-status-card">
+            <div className="cache-status-header">
+              <span>缓存状态</span>
+              <strong>{cacheStatus.preset}</strong>
+            </div>
+            <div className={`cache-status-item ${cacheStatus.rawStatus}`}>
+              <span>Raw</span>
+              <strong>{getCacheStatusText(cacheStatus.rawStatus)}</strong>
+              <small>
+                {cacheStatus.rawCount} / {cacheStatus.inputCount}
+              </small>
+            </div>
+            <p>{cacheStatus.rawMessage}</p>
+            <div className={`cache-status-item ${cacheStatus.softStatus}`}>
+              <span>Soft</span>
+              <strong>{getCacheStatusText(cacheStatus.softStatus)}</strong>
+              <small>
+                {cacheStatus.softCount} / {cacheStatus.inputCount}
+              </small>
+            </div>
+            <p>{cacheStatus.softMessage}</p>
+          </div>
+        ) : null}
 
         <div className="self-check-card">
           <div className="self-check-header">

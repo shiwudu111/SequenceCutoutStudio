@@ -17,6 +17,11 @@ contextBridge.exposeInMainWorld('cutoutAPI', {
   scanFrameFolder: (folderPath: string) =>
     ipcRenderer.invoke('frames:scan-folder', folderPath),
 
+  inspectCacheStatus: (args: {
+    inputDir: string
+    preset: 'C' | 'F' | 'I' | 'Custom'
+  }) => ipcRenderer.invoke('cache:inspect-status', args),
+
   extractVideoFrames: (args: {
     videoPath: string
     fps: number
