@@ -2,7 +2,7 @@
 
 版本定位：第一版内测绿色包已通过，进入发布流程固化与下一轮功能开发准备
 
-当前阶段：Phase 5 正式发布包装推进中，Phase 5-1 已完成
+当前阶段：Phase 5 正式发布包装推进中，Phase 5-2 已完成
 
 基线日期：2026-05-28
 
@@ -843,7 +843,7 @@ Phase 4F 最终收口：
 
 # Phase 5：正式发布包装
 
-状态：进行中，Phase 5-1 已完成。
+状态：进行中，Phase 5-2 已完成。
 
 建议路线：
 
@@ -865,6 +865,17 @@ Phase 5-1 阶段回顾：
 本阶段边界：只做发布前核对、启动图资源入库和文档记录；不新增功能；不改 rembg / portable Python / postprocess / launcher 逻辑。
 阻塞处理：首次打包因旧 SequenceCutoutStudio 进程占用 app.asar 失败；关闭占用进程后重跑通过。
 下个阶段唯一主目标：Phase 5-2 发布清单与内测交付说明，明确给测试者的 zip、启动方式、验收流程和已知边界。
+```
+
+Phase 5-2 阶段回顾：
+
+```text
+目标是否完成：已完成。
+实际完成：新增 docs/INTERNAL-RELEASE.md，明确内测交付 zip、启动方式、推荐验收流程、重点观察项、已知边界和反馈方式；修复 docs/INTERNAL-FEEDBACK.md 乱码，改为可直接复制给测试者的中文反馈模板。
+关键交付文件：release/SequenceCutoutStudio-Internal-v0.4.0-internal.1-win-x64.zip，约 552.75 MB。
+本阶段边界：只做发布清单、内测交付说明和反馈模板；不新增功能；不改代码；不改构建脚本；不重新打包。
+验证命令：未运行，文档变更不涉及编译产物；沿用 Phase 5-1 的 build-internal.ps1、Python import 和 zip 核对结果。
+下个阶段唯一主目标：Phase 5-3 GUI 启动与冒烟验收，手工确认新启动图、主界面打开、自检、核心按钮路径。
 ```
 
 ---
