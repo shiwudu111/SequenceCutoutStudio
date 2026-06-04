@@ -2,7 +2,7 @@
 
 版本定位：第一版内测绿色包已通过，进入发布流程固化与下一轮功能开发准备
 
-当前阶段：Phase 4E 缓存系统已收口，下一阶段进入 Phase 4F 处理效果增强
+当前阶段：Phase 4F 处理效果增强推进中，Phase 4F-2 已完成
 
 基线日期：2026-05-28
 
@@ -134,7 +134,7 @@ Phase 4B：预览体验与帧导航                  已完成
 Phase 4C：任务队列与批处理稳定化            已完成
 Phase 4D：导出系统                         已完成
 Phase 4E：缓存系统                         已完成
-Phase 4F：处理效果增强                     下一阶段
+Phase 4F：处理效果增强                     进行中
 Phase 5：正式发布包装
 ```
 
@@ -692,7 +692,7 @@ Phase 4E 最终收口：
 
 # Phase 4F：处理效果增强
 
-状态：进行中，Phase 4F-1 已完成。
+状态：进行中，Phase 4F-2 已完成。
 
 目标：提升输出质量，让边缘更干净、更稳定，更适合游戏资源使用。
 
@@ -736,6 +736,40 @@ Phase 4F-1 阶段回顾：
 绿色包验证：本次未重新打包，不涉及 portable Python / rembg / postprocess 链路修改。
 稳定链路影响：不改变 portable Python / rembg_runner / postprocess 调用链路，不恢复 .venv，不调用 rembg.exe。
 下个阶段唯一主目标：Phase 4F-2 处理效果增强方案拆分，先决定是否从去白边 / 去黑边或边缘颜色修正开始，不直接改算法。
+```
+
+Phase 4F-2 方案拆分：
+
+```text
+只做方案拆分与下一步选择，不直接改处理算法。
+
+当前 postprocess 现状：
+1. alphaLow 负责低透明区域置零。
+2. shrink 负责轻微腐蚀收边。
+3. 脚本会从原图四角估算背景色，并尝试对半透明边缘做去底色。
+
+效果增强拆分：
+1. 源码落点：把 postprocess 脚本源码纳入 runtime-tools/postprocess，后续从源码同步到 portable-root，避免只改本地运行时。
+2. 边缘颜色修正：优先处理白边 / 黑边 / 背景色污染，目标是改善半透明边缘颜色，不先增加复杂 UI。
+3. 去白边 / 去黑边：作为边缘颜色修正的可选策略或 preset 内部策略，不单独先做独立主流程。
+4. 更细参数：后置，等默认效果稳定后再决定是否暴露给用户。
+5. 帧间一致性：后置，需要先有稳定单帧效果和样例对比。
+
+本阶段结论：
+下一步不直接改算法，先做 Phase 4F-3：postprocess 源码落点与构建同步检查。
+随后再做 Phase 4F-4：边缘颜色修正的最小可回退实现。
+```
+
+Phase 4F-2 阶段回顾：
+
+```text
+目标是否完成：已完成。
+实际完成：确认处理效果增强优先级；选择先补 postprocess 源码落点，再做边缘颜色修正；将去白边 / 去黑边纳入边缘颜色修正策略，而不是先做独立 UI 功能。
+本阶段边界：只更新阶段计划；不改 postprocess 脚本；不改 rembg / portable Python / launcher / 打包链路；不改变 C / F / I 参数值。
+验证命令：未运行，文档规划变更不涉及编译产物。
+绿色包验证：本次未重新打包，不涉及 portable Python / rembg / postprocess 链路修改。
+稳定链路影响：不改变 portable Python / rembg_runner / postprocess 调用链路，不恢复 .venv，不调用 rembg.exe。
+下个阶段唯一主目标：Phase 4F-3 postprocess 源码落点与构建同步检查，不改算法效果。
 ```
 
 ---
