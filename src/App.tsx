@@ -207,6 +207,7 @@ function App(): JSX.Element {
 
     appendLog(`缓存状态：${result.rawMessage}`)
     appendLog(`输出状态：${result.softMessage}`)
+    appendLog(`缓存占用：Raw ${result.rawSizeText} / Soft ${result.softSizeText} / 合计 ${result.totalSizeText}`)
     appendLog(`复用建议：${result.cacheHitMessage}`)
   }
 

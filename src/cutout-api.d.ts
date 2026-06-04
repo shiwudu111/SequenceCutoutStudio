@@ -96,6 +96,12 @@ declare global {
         inputCount: number
         rawCount: number
         softCount: number
+        rawBytes: number
+        softBytes: number
+        totalBytes: number
+        rawSizeText: string
+        softSizeText: string
+        totalSizeText: string
         sourceHash: string
         paramsHash: string
         cacheKey: string

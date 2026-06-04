@@ -370,6 +370,30 @@ async function listPngFileNames(folderPath: string): Promise<string[]> {
   }
 }
 
+async function sumPngFileBytes(folderPath: string): Promise<number> {
+  const fileNames = await listPngFileNames(folderPath)
+  const sizes = await Promise.all(
+    fileNames.map(async (fileName) => {
+      try {
+        const stat = await fs.stat(path.join(folderPath, fileName))
+        return stat.size
+      } catch {
+        return 0
+      }
+    })
+  )
+
+  return sizes.reduce((total, size) => total + size, 0)
+}
+
+function formatBytes(bytes: number): string {
+  if (bytes <= 0) {
+    return '0 MB'
+  }
+
+  return `${(bytes / 1024 / 1024).toFixed(2)} MB`
+}
+
 function formatCommandDebug(title: string, result: RunCommandResult): string {
   const details = [`${title} exit code: ${result.code ?? 'unknown'}`]
   const stdout = result.stdout.trim()
@@ -635,6 +659,9 @@ async function inspectCacheStatus(args: {
   )
   const rawCount = await countPngFiles(rawDir)
   const softCount = await countPngFiles(softDir)
+  const rawBytes = await sumPngFileBytes(rawDir)
+  const softBytes = await sumPngFileBytes(softDir)
+  const totalBytes = rawBytes + softBytes
   const sourceHash = hashJson({
     inputDir,
     inputCount,
@@ -685,6 +712,12 @@ async function inspectCacheStatus(args: {
     inputCount,
     rawCount,
     softCount,
+    rawBytes,
+    softBytes,
+    totalBytes,
+    rawSizeText: formatBytes(rawBytes),
+    softSizeText: formatBytes(softBytes),
+    totalSizeText: formatBytes(totalBytes),
     sourceHash,
     paramsHash,
     cacheKey: `${sourceHash}-${paramsHash}`,
@@ -1911,6 +1944,12 @@ ipcMain.handle('cache:inspect-status', async (_event, args) => {
       inputCount: 0,
       rawCount: 0,
       softCount: 0,
+      rawBytes: 0,
+      softBytes: 0,
+      totalBytes: 0,
+      rawSizeText: '0 MB',
+      softSizeText: '0 MB',
+      totalSizeText: '0 MB',
       sourceHash: '',
       paramsHash: '',
       cacheKey: '',
