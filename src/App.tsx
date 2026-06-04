@@ -144,7 +144,7 @@ function App(): JSX.Element {
   const logsRef = useRef<HTMLDivElement | null>(null)
   const [logs, setLogs] = useState<string[]>([
     'Sequence Cutout Studio 已启动。',
-    '当前阶段：Phase 4E - 缓存系统。'
+    '当前阶段：Phase 5 - 正式发布包装。'
   ])
 
   const appendLog = (line: string): void => {
@@ -1319,8 +1319,8 @@ function App(): JSX.Element {
 
         <div className="phase-card">
           <span>当前阶段</span>
-          <strong>Phase 4E</strong>
-          <p>识别 Raw / Soft 缓存状态，不改变处理链路。</p>
+          <strong>Phase 5</strong>
+          <p>发布前核对、内测交付说明和绿色包冒烟验收。</p>
           <small>{appVersion ? `v${appVersion}` : '读取版本中...'}</small>
         </div>
 

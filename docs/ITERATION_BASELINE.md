@@ -2,7 +2,7 @@
 
 版本定位：第一版内测绿色包已通过，进入发布流程固化与下一轮功能开发准备
 
-当前阶段：Phase 5 正式发布包装推进中，Phase 5-2 已完成
+当前阶段：Phase 5 正式发布包装推进中，Phase 5-3 已完成
 
 基线日期：2026-05-28
 
@@ -843,7 +843,7 @@ Phase 4F 最终收口：
 
 # Phase 5：正式发布包装
 
-状态：进行中，Phase 5-2 已完成。
+状态：进行中，Phase 5-3 已完成。
 
 建议路线：
 
@@ -876,6 +876,19 @@ Phase 5-2 阶段回顾：
 本阶段边界：只做发布清单、内测交付说明和反馈模板；不新增功能；不改代码；不改构建脚本；不重新打包。
 验证命令：未运行，文档变更不涉及编译产物；沿用 Phase 5-1 的 build-internal.ps1、Python import 和 zip 核对结果。
 下个阶段唯一主目标：Phase 5-3 GUI 启动与冒烟验收，手工确认新启动图、主界面打开、自检、核心按钮路径。
+```
+
+Phase 5-3 阶段回顾：
+
+```text
+目标是否完成：已完成 GUI 启动与冒烟验收。
+实际完成：从 release/SequenceCutoutStudio-Internal/SequenceCutoutStudio-Internal.exe 启动绿色包；主界面正常打开；版本显示 v0.4.0-internal.1；左侧当前阶段显示 Phase 5；环境自检 12/12 项通过；输入素材区、预览区、视频切帧参数、关键帧/播放控制等核心首屏路径可见。
+发现并修复：GUI 冒烟时发现左侧当前阶段仍显示 Phase 4E，已修正为 Phase 5，并重新运行 tsc、npm build 和 build-internal.ps1。
+验证产物：release/phase-5-3-gui-smoke/main-screen.png；release/phase-5-3-gui-smoke/splash-screen.png。
+启动图说明：绿色包从顶层 launcher 启动成功；本机启动较快，截图时已进入主界面，未单独捕获到停留状态的 splash 画面。
+验证命令：tsc --noEmit 通过；npm.cmd run build 通过；build-internal.ps1 通过；Python import rembg / onnxruntime / PIL,numpy 在脚本内通过；最终 zip 大小 552.75 MB。
+本阶段边界：只修正发布阶段显示文案并做 GUI 冒烟；不新增功能；不改 rembg / portable Python / postprocess / launcher 逻辑。
+下个阶段唯一主目标：Phase 5-4 最终发布前清点与收口，确认是否可以交付当前 zip 给内测用户。
 ```
 
 ---
