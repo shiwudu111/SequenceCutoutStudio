@@ -2,7 +2,7 @@
 
 版本定位：第一版内测绿色包已通过，进入发布流程固化与下一轮功能开发准备
 
-当前阶段：Phase 5 正式发布包装已收口，0.4.0-internal.1 可交付内测
+当前阶段：Phase 6A 去背景质量评估已启动，先出测试质量报告，不直接改算法
 
 基线日期：2026-05-28
 
@@ -135,7 +135,8 @@ Phase 4C：任务队列与批处理稳定化            已完成
 Phase 4D：导出系统                         已完成
 Phase 4E：缓存系统                         已完成
 Phase 4F：处理效果增强                     已完成
-Phase 5：正式发布包装                      进行中
+Phase 5：正式发布包装                      已完成
+Phase 6A：去背景质量评估                    进行中
 ```
 
 ---
@@ -910,6 +911,44 @@ zip 大小：552.75 MB。
 
 ---
 
+# Phase 6A：去背景质量评估
+
+状态：进行中。
+
+目标：先建立不同背景下的去背景质量测试报告，再讨论核心功能优化方向。本阶段不直接改 rembg、postprocess、portable Python、launcher 或导出链路。
+
+本阶段边界：
+
+```text
+[x] 建立质量测试报告结构
+[x] 明确不同背景测试分类
+[x] 明确 A / B / C / D 评级规则
+[x] 用现有真实样例输出建立初始基线
+[ ] 补齐不同背景测试素材
+[ ] 跑完整 Raw / Soft 结果
+[ ] 输出第一版真实质量结论
+```
+
+当前已完成：
+
+```text
+新增 docs/BACKGROUND-REMOVAL-QUALITY-REPORT.md。
+记录现有 release/phase-4f-5-real-sample 的 16 帧 Raw / Soft 指标。
+确认当前样本帧数一致、尺寸一致、alpha 覆盖率波动较小。
+明确当前样本不能代表不同背景，不足以决定算法优化方向。
+```
+
+验证命令：
+
+```text
+使用 portable Python + PIL 只读统计 release/phase-4f-5-real-sample 的 PNG alpha 指标。
+本阶段只改文档，不涉及 TypeScript / Electron / Python 运行链路，未运行 tsc / npm build。
+```
+
+下个阶段唯一主目标：补齐不同背景测试样本并跑 0.4.0-internal.1，形成第一版真实质量结论。
+
+---
+
 ## 4. 推荐近期执行计划
 
 ### 最近一个小版本：0.4.0-internal.1
@@ -1007,5 +1046,6 @@ portable Python 运行时验证
 推荐路线：
 
 ```text
-进入任务队列、导出和缓存
+先做 Phase 6A 去背景质量评估
+再决定核心功能优化方向和推广节奏
 ```
