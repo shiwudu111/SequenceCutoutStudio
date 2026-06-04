@@ -692,7 +692,7 @@ Phase 4E 最终收口：
 
 # Phase 4F：处理效果增强
 
-状态：下一阶段。
+状态：进行中，Phase 4F-1 已完成。
 
 目标：提升输出质量，让边缘更干净、更稳定，更适合游戏资源使用。
 
@@ -724,6 +724,18 @@ Phase 4F-1 建议目标：
 目标：把 C / F / I 的用户可见文案统一为柔和边缘、标准边缘、干净收边；让日志、按钮附近说明和 preset 显示更适合美术用户理解。
 不做：不改 alphaLow / shrink 默认值，不改 postprocess 脚本，不改 rembg / portable Python / launcher / 打包链路。
 验收：tsc --noEmit；npm.cmd run build。
+```
+
+Phase 4F-1 阶段回顾：
+
+```text
+目标是否完成：已完成。
+实际完成：预设按钮显示 C / F / I 代号和柔和边缘、标准边缘、干净收边的人话名称；Custom 显示为自定义；单帧测试、批量处理、读取参数、对比生成和应用对比参数的日志统一显示边缘阈值 / 收边力度。
+本阶段边界：只改用户可见命名和文案；不改 alphaLow / shrink 默认值；不改 postprocess 脚本；不改 rembg / portable Python / launcher / 打包链路；不改变 soft_C / soft_F / soft_I 目录命名。
+验证命令：tsc --noEmit 通过；npm.cmd run build 通过。
+绿色包验证：本次未重新打包，不涉及 portable Python / rembg / postprocess 链路修改。
+稳定链路影响：不改变 portable Python / rembg_runner / postprocess 调用链路，不恢复 .venv，不调用 rembg.exe。
+下个阶段唯一主目标：Phase 4F-2 处理效果增强方案拆分，先决定是否从去白边 / 去黑边或边缘颜色修正开始，不直接改算法。
 ```
 
 ---

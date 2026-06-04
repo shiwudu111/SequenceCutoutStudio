@@ -51,23 +51,33 @@ type BatchProgressStage = 'prepare' | 'rembg' | 'postprocess' | 'done' | 'error'
 
 const EDGE_PRESET_PARAMS: Record<Exclude<Preset, 'Custom'>, EdgePresetParams> = {
   C: {
-    label: 'C 轻柔',
+    label: '柔和边缘',
     alphaLow: 24,
     shrink: 0.35
   },
   F: {
-    label: 'F 标准',
+    label: '标准边缘',
     alphaLow: 36,
     shrink: 0.58
   },
   I: {
-    label: 'I 干净',
+    label: '干净收边',
     alphaLow: 48,
     shrink: 0.78
   }
 }
 
 const COMPARE_PRESETS: Preset[] = ['C', 'F', 'I', 'Custom']
+
+const getPresetName = (targetPreset: Preset): string =>
+  targetPreset === 'Custom' ? '自定义' : EDGE_PRESET_PARAMS[targetPreset].label
+
+const getPresetDisplayLabel = (targetPreset: Preset): string =>
+  targetPreset === 'Custom' ? '自定义' : `${EDGE_PRESET_PARAMS[targetPreset].label} (${targetPreset})`
+
+const formatPresetParams = (targetPreset: Preset, nextAlphaLow: number, nextShrink: number): string =>
+  `${getPresetDisplayLabel(targetPreset)} / 边缘阈值=${nextAlphaLow} / 收边力度=${nextShrink}`
+
 function App(): JSX.Element {
   const [appVersion, setAppVersion] = useState('')
   const [inputPath, setInputPath] = useState('尚未选择素材')
@@ -339,7 +349,7 @@ function App(): JSX.Element {
   const resolvePresetParams = (targetPreset: Preset): EdgePresetParams => {
     if (targetPreset === 'Custom') {
       return {
-        label: 'Custom 自定义',
+        label: '自定义',
         alphaLow,
         shrink
       }
@@ -779,7 +789,7 @@ function App(): JSX.Element {
     }
 
     appendLog(
-      `已应用参数：${nextPreset} / AlphaLow=${nextAlphaLow} / Shrink=${nextShrink} / 播放FPS=${nextPlaybackFps} / 背景=${nextPreviewBackground}`
+      `已应用参数：${formatPresetParams(nextPreset, nextAlphaLow, nextShrink)} / 播放 FPS=${nextPlaybackFps} / 背景=${nextPreviewBackground}`
     )
   }
 
@@ -948,7 +958,7 @@ function App(): JSX.Element {
     appendLog('开始测试单帧。')
     appendLog(`输入目录：${selectedFolder}`)
     appendLog(`测试帧：${previewFrameName}`)
-    appendLog(`Preset：${preset} / AlphaLow=${alphaLow} / Shrink=${shrink}`)
+    appendLog(`修边预设：${formatPresetParams(preset, alphaLow, shrink)}`)
 
     const result = await window.cutoutAPI.runSingleCutout({
       inputDir: selectedFolder,
@@ -1005,7 +1015,7 @@ function App(): JSX.Element {
     const initialItems = COMPARE_PRESETS.map(createCompareItem)
     setCompareItems(initialItems)
 
-    appendLog('开始生成 C / F / I / Custom 参数对比。')
+    appendLog('开始生成柔和边缘 / 标准边缘 / 干净收边 / 自定义参数对比。')
     appendLog(`对比帧：${previewFrameName}`)
 
     for (const item of initialItems) {
@@ -1014,7 +1024,7 @@ function App(): JSX.Element {
         message: '处理中...'
       })
 
-      appendLog(`开始对比 ${item.label}：AlphaLow=${item.alphaLow} / Shrink=${item.shrink}`)
+      appendLog(`开始对比 ${formatPresetParams(item.preset, item.alphaLow, item.shrink)}`)
 
       const result = await window.cutoutAPI.runSingleCutout({
         inputDir: selectedFolder,
@@ -1060,7 +1070,7 @@ function App(): JSX.Element {
     }
 
     setIsComparing(false)
-    appendLog('C / F / I / Custom 参数对比完成。')
+    appendLog('柔和边缘 / 标准边缘 / 干净收边 / 自定义参数对比完成。')
   }
 
   const handleApplyComparePreset = (item: CompareItem): void => {
@@ -1074,7 +1084,7 @@ function App(): JSX.Element {
     setShrink(item.shrink)
     setActiveComparePreset(item.preset)
 
-    appendLog(`已应用对比参数：${item.label} / AlphaLow=${item.alphaLow} / Shrink=${item.shrink}`)
+    appendLog(`已应用对比参数：${formatPresetParams(item.preset, item.alphaLow, item.shrink)}`)
   }
 
   const handleRunBatchCutout = async (options?: { skipRembg?: boolean }): Promise<void> => {
@@ -1111,7 +1121,7 @@ function App(): JSX.Element {
 
     appendLog(skipRembg ? '开始只重跑边缘。' : '开始批量处理。')
     appendLog(`输入目录：${selectedFolder}`)
-    appendLog(`Preset：${preset} / AlphaLow=${alphaLow} / Shrink=${shrink}`)
+    appendLog(`修边预设：${formatPresetParams(preset, alphaLow, shrink)}`)
     appendLog(skipRembg ? '跳过 rembg，校验并复用 general_raw。' : '开始 rembg 批量抠图...')
 
     try {
@@ -1510,7 +1520,7 @@ function App(): JSX.Element {
           <section className="panel controls-panel">
             <div className="panel-header">
               <h3>处理参数</h3>
-              <span>Preset</span>
+              <span>边缘预设</span>
             </div>
 
             <div className="preset-row">
@@ -1520,13 +1530,14 @@ function App(): JSX.Element {
                   className={preset === item ? 'preset active' : 'preset'}
                   onClick={() => handlePresetChange(item)}
                 >
-                  {item}
+                  <strong>{item}</strong>
+                  <span>{getPresetName(item)}</span>
                 </button>
               ))}
             </div>
 
             <label className="field">
-              <span>AlphaLow</span>
+              <span>边缘阈值</span>
               <input
                 type="number"
                 value={alphaLow}
@@ -1536,7 +1547,7 @@ function App(): JSX.Element {
             </label>
 
             <label className="field">
-              <span>Shrink</span>
+              <span>收边力度</span>
               <input
                 type="number"
                 step="0.01"
@@ -1907,7 +1918,7 @@ function App(): JSX.Element {
                       }
                     }}
                   >
-                    {comparePreset}
+                    {getPresetName(comparePreset)}
                   </button>
                 )
               })}
