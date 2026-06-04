@@ -23,7 +23,47 @@ def estimate_bg_color(img):
     return np.concatenate(samples, axis=0).mean(axis=0)
 
 
-def gentle_clean(original_path, cutout_path, output_path, alpha_low, shrink):
+def repair_edge_color(rgb_clean, alpha, strength):
+    if strength <= 0:
+        return 0
+
+    solid_mask = alpha >= 240
+    edge_mask = (alpha > 0.5) & (alpha < 220)
+
+    if not solid_mask.any() or not edge_mask.any():
+        return 0
+
+    solid_rgb = np.where(solid_mask[..., None], rgb_clean, 0)
+    solid_weight = solid_mask.astype(np.uint8) * 255
+
+    solid_rgb_img = Image.fromarray(solid_rgb.clip(0, 255).astype(np.uint8), mode="RGB")
+    solid_weight_img = Image.fromarray(solid_weight, mode="L")
+
+    blurred_rgb = np.array(solid_rgb_img.filter(ImageFilter.GaussianBlur(radius=2.0)), dtype=np.float32)
+    blurred_weight = np.array(
+        solid_weight_img.filter(ImageFilter.GaussianBlur(radius=2.0)),
+        dtype=np.float32,
+    )
+
+    valid_mask = edge_mask & (blurred_weight > 1)
+    adjusted_count = int(valid_mask.sum())
+
+    if adjusted_count == 0:
+        return 0
+
+    nearby_rgb = blurred_rgb * (255.0 / np.maximum(blurred_weight[..., None], 1.0))
+    edge_amount = np.clip((220.0 - alpha) / 220.0, 0.0, 1.0) * strength
+    edge_amount = edge_amount[..., None]
+
+    rgb_clean[valid_mask] = (
+        rgb_clean[valid_mask] * (1.0 - edge_amount[valid_mask])
+        + nearby_rgb[valid_mask] * edge_amount[valid_mask]
+    )
+
+    return adjusted_count
+
+
+def gentle_clean(original_path, cutout_path, output_path, alpha_low, shrink, edge_color_fix_strength):
     original = Image.open(original_path).convert("RGBA")
     cutout = Image.open(cutout_path).convert("RGBA")
 
@@ -59,12 +99,14 @@ def gentle_clean(original_path, cutout_path, output_path, alpha_low, shrink):
 
     mask0 = alpha <= 0.5
     rgb_clean[mask0] = 0
+    fixed_edge_pixels = repair_edge_color(rgb_clean, alpha, edge_color_fix_strength)
 
     out = np.dstack([rgb_clean, alpha.clip(0, 255)])
     out = Image.fromarray(out.astype(np.uint8), mode="RGBA")
 
     output_path.parent.mkdir(parents=True, exist_ok=True)
     out.save(output_path)
+    return fixed_edge_pixels
 
 
 def collect_pngs(path):
@@ -81,6 +123,8 @@ def main():
     parser.add_argument("--output", required=True, help="输出 PNG 文件或目录")
     parser.add_argument("--alpha-low", type=int, default=48)
     parser.add_argument("--shrink", type=float, default=0.78)
+    parser.add_argument("--edge-color-fix-strength", type=float, default=0.35)
+    parser.add_argument("--disable-edge-color-fix", action="store_true")
     parser.add_argument("--log", default="")
     args = parser.parse_args()
 
@@ -99,12 +143,21 @@ def main():
     processed = 0
     skipped = 0
     errors = []
+    edge_color_fixed_pixels = 0
+    edge_color_fix_strength = 0.0 if args.disable_edge_color_fix else args.edge_color_fix_strength
 
     if original_path.is_file():
         raw_file = raw_path
         out_file = output_path
         try:
-            gentle_clean(original_path, raw_file, out_file, args.alpha_low, args.shrink)
+            edge_color_fixed_pixels += gentle_clean(
+                original_path,
+                raw_file,
+                out_file,
+                args.alpha_low,
+                args.shrink,
+                edge_color_fix_strength,
+            )
             processed += 1
         except Exception as e:
             errors.append(str(e))
@@ -121,7 +174,14 @@ def main():
                 continue
 
             try:
-                gentle_clean(original_file, raw_file, out_file, args.alpha_low, args.shrink)
+                edge_color_fixed_pixels += gentle_clean(
+                    original_file,
+                    raw_file,
+                    out_file,
+                    args.alpha_low,
+                    args.shrink,
+                    edge_color_fix_strength,
+                )
                 processed += 1
             except Exception as e:
                 skipped += 1
@@ -133,6 +193,9 @@ def main():
         "errors": errors,
         "alphaLow": args.alpha_low,
         "shrink": args.shrink,
+        "edgeColorFix": not args.disable_edge_color_fix,
+        "edgeColorFixStrength": edge_color_fix_strength,
+        "edgeColorFixedPixels": edge_color_fixed_pixels,
         "elapsedSeconds": round(time.time() - start, 3),
     }
 

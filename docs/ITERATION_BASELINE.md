@@ -2,7 +2,7 @@
 
 版本定位：第一版内测绿色包已通过，进入发布流程固化与下一轮功能开发准备
 
-当前阶段：Phase 4F 处理效果增强推进中，Phase 4F-3 已完成
+当前阶段：Phase 4F 处理效果增强推进中，Phase 4F-4 已完成
 
 基线日期：2026-05-28
 
@@ -692,7 +692,7 @@ Phase 4E 最终收口：
 
 # Phase 4F：处理效果增强
 
-状态：进行中，Phase 4F-3 已完成。
+状态：进行中，Phase 4F-4 已完成。
 
 目标：提升输出质量，让边缘更干净、更稳定，更适合游戏资源使用。
 
@@ -701,7 +701,7 @@ Phase 4E 最终收口：
 ```text
 [ ] 更细的边缘参数
 [ ] 去白边 / 去黑边
-[ ] 边缘颜色修正
+[x] 边缘颜色修正
 [ ] 半透明区域优化
 [ ] 毛发 / 尾巴 / 细节边缘优化
 [ ] 帧间闪动检查
@@ -782,6 +782,19 @@ Phase 4F-3 阶段回顾：
 绿色包验证：本阶段重新打包用于验证构建同步，不做手工完整业务流验收。
 稳定链路影响：仍通过 tools/python/python.exe 调用 tools/rembg_runner.py 和 tools/postprocess/batch_clean_cutout_soft.py，不调用 rembg.exe。
 下个阶段唯一主目标：Phase 4F-4 边缘颜色修正的最小可回退实现。
+```
+
+Phase 4F-4 阶段回顾：
+
+```text
+目标是否完成：已完成。
+实际完成：postprocess 新增 repair_edge_color，在原有去底色之后只修正半透明边缘颜色；从附近实心前景像素取色并按透明度轻量混合，降低白边 / 黑边 / 背景色污染；新增 edgeColorFix、edgeColorFixStrength、edgeColorFixedPixels 日志字段。
+回退方式：新增 --disable-edge-color-fix 可关闭边缘颜色修正；新增 --edge-color-fix-strength 可调整强度，默认 0.35。
+本阶段边界：不加 UI；不改 C / F / I 的 alphaLow / shrink 参数值；不改 rembg / portable Python / launcher 运行链路；不恢复 .venv；不改变输出目录命名。
+验证命令：py_compile 通过；合成 PNG 小样例通过；tsc --noEmit 通过；npm.cmd run build 通过；build-internal.ps1 通过；Python import rembg / onnxruntime / PIL,numpy 通过；最终包无 tools/rembg/.venv；zip 大小已记录。
+绿色包验证：本阶段重新打包用于验证 postprocess 同步和运行时依赖，不做手工完整业务流验收。
+稳定链路影响：仍通过 tools/python/python.exe 调用 tools/rembg_runner.py 和 tools/postprocess/batch_clean_cutout_soft.py，不调用 rembg.exe。
+下个阶段唯一主目标：Phase 4F-5 用真实样例做边缘修正验收，决定是否保留默认强度 0.35。
 ```
 
 ---
