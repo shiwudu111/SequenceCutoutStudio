@@ -2,7 +2,7 @@
 
 版本定位：第一版内测绿色包已通过，进入发布流程固化与下一轮功能开发准备
 
-当前阶段：Phase 4F 处理效果增强推进中，Phase 4F-4 已完成
+当前阶段：Phase 4F 处理效果增强推进中，Phase 4F-5 已完成
 
 基线日期：2026-05-28
 
@@ -692,7 +692,7 @@ Phase 4E 最终收口：
 
 # Phase 4F：处理效果增强
 
-状态：进行中，Phase 4F-4 已完成。
+状态：进行中，Phase 4F-5 已完成。
 
 目标：提升输出质量，让边缘更干净、更稳定，更适合游戏资源使用。
 
@@ -795,6 +795,22 @@ Phase 4F-4 阶段回顾：
 绿色包验证：本阶段重新打包用于验证 postprocess 同步和运行时依赖，不做手工完整业务流验收。
 稳定链路影响：仍通过 tools/python/python.exe 调用 tools/rembg_runner.py 和 tools/postprocess/batch_clean_cutout_soft.py，不调用 rembg.exe。
 下个阶段唯一主目标：Phase 4F-5 用真实样例做边缘修正验收，决定是否保留默认强度 0.35。
+```
+
+Phase 4F-5 阶段回顾：
+
+```text
+目标是否完成：已完成。
+实际完成：使用 portable-root/samples/sample_frames 的 16 张真实样例生成 Raw，并分别输出默认边缘颜色修正 soft_fix 与关闭修正 soft_off；生成 edge_fix_metrics.json 和 edge_fix_contact_sheet.jpg 作为对比记录。
+验收结论：保留默认 edgeColorFixStrength=0.35。
+关键指标：edgeColorFixedPixels=166058；alphaChangedPixels=0；rgbChangedPixels=162508；semiTransparentRgbChangedPixels=162508；opaqueRgbChangedPixels=0；transparentRgbChangedPixels=0；meanRgbDeltaOnChangedPixels=63.05。
+判断：修正只影响半透明边缘 RGB，不改变 alpha，不影响全透明区和完全不透明区，符合本阶段“只修边缘颜色污染”的边界。
+验证产物：release/phase-4f-5-real-sample/raw；release/phase-4f-5-real-sample/soft_fix；release/phase-4f-5-real-sample/soft_off；release/phase-4f-5-real-sample/edge_fix_metrics.json；release/phase-4f-5-real-sample/edge_fix_contact_sheet.jpg。
+本阶段边界：只做真实样例验收和文档记录；不改算法；不加 UI；不改 rembg / portable Python / launcher 运行链路；不恢复 .venv。
+验证命令：rembg_runner batch 16 帧通过；postprocess 默认修正通过；postprocess --disable-edge-color-fix 通过；指标脚本通过；对比图生成通过。
+绿色包验证：使用 release 内 portable Python 与 postprocess 运行样例验证；本阶段未重新打包。
+稳定链路影响：不改变 portable Python / rembg_runner / postprocess 调用链路，不调用 rembg.exe。
+下个阶段唯一主目标：Phase 4F-6 绿色包完整业务流验收，确认边缘颜色修正在软件主流程中可用。
 ```
 
 ---
