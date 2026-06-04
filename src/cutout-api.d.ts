@@ -80,6 +80,12 @@ declare global {
     type CacheStatusKind = 'ready' | 'missing' | 'mismatch' | 'incomplete'
     type CacheHitStatus = 'full' | 'raw-only' | 'soft-only' | 'none'
 
+    type CacheManageTarget = {
+        dir: string
+        manageable: boolean
+        reason: string
+    }
+
     type CacheStatusResult = {
         ok: boolean
         message?: string
@@ -95,6 +101,12 @@ declare global {
         cacheKey: string
         cacheHitStatus: CacheHitStatus
         cacheHitMessage: string
+        cacheManagement: {
+            raw: CacheManageTarget
+            soft: CacheManageTarget
+            cleanupAllowed: boolean
+            cleanupReason: string
+        }
         rawStatus: CacheStatusKind
         softStatus: CacheStatusKind
         rawMessage: string

@@ -2,7 +2,7 @@
 
 版本定位：第一版内测绿色包已通过，进入发布流程固化与下一轮功能开发准备
 
-当前阶段：Phase 4E 缓存系统推进中，Phase 4E-3 已完成
+当前阶段：Phase 4E 缓存系统推进中，Phase 4E-4 已完成
 
 基线日期：2026-05-28
 
@@ -580,7 +580,7 @@ Phase 4D 最终收口：
 
 # Phase 4E：缓存系统
 
-状态：进行中，Phase 4E-3 已完成。
+状态：进行中，Phase 4E-4 已完成。
 
 目标：减少重复处理，提高处理效率。
 
@@ -597,8 +597,8 @@ source + model + params -> cache key
 [x] 缓存状态提示
 [x] 原始素材 hash
 [x] 参数 hash
-[ ] Raw 缓存管理
-[ ] Soft 缓存管理
+[x] Raw 缓存管理规则
+[x] Soft 缓存管理规则
 [x] 缓存命中提示
 [ ] 清理缓存功能
 [ ] 缓存占用大小显示
@@ -647,6 +647,21 @@ Phase 4E-3 阶段回顾：
 绿色包验证：本次未重新打包，不涉及 portable Python / rembg / postprocess 链路修改。
 稳定链路影响：不改变 portable Python / rembg_runner / postprocess 调用链路，不恢复 .venv，不调用 rembg.exe。
 下个阶段唯一主目标：Phase 4E-4 Raw / Soft 缓存管理方案设计，先不做清理功能。
+```
+
+Phase 4E-4 阶段回顾：
+
+```text
+目标是否完成：已完成缓存管理规则底座。
+实际完成：缓存状态检查返回 cacheManagement；Raw / Soft 分别标记 dir、manageable、reason；明确 cleanupAllowed=false 和 cleanupReason，禁止当前阶段清理缓存。
+Raw 管理规则：仅识别当前输入目录旁的 素材名_general_raw；目录存在且有 PNG 时可作为后续缓存管理对象；manifest 不匹配只代表不能复用，不代表可以自动删除。
+Soft 管理规则：仅识别当前输入目录旁的 素材名_soft_当前Preset；目录存在且有 PNG 时可作为后续缓存管理对象；数量不完整只提示，不自动删除。
+绝不清理：用户选择的输入目录、原始视频、portable-root/tools、release、exports、非当前命名规则目录。
+本阶段边界：没有增加清理按钮，没有删除文件，没有自动缓存命中，没有改变 rembg / postprocess 调用链路。
+验证命令：tsc --noEmit 通过；npm.cmd run build 通过。
+绿色包验证：本次未重新打包，不涉及 portable Python / rembg / postprocess 链路修改。
+稳定链路影响：不改变 portable Python / rembg_runner / postprocess 调用链路，不恢复 .venv，不调用 rembg.exe。
+下个阶段唯一主目标：Phase 4E-5 缓存占用大小显示，只读统计，不清理。
 ```
 
 ---

@@ -673,6 +673,8 @@ async function inspectCacheStatus(args: {
         : cacheHitStatus === 'soft-only'
           ? '检测到完整 Soft 输出，但 Raw 缓存不可用；可直接导出已有 Soft 结果。'
           : '没有检测到可直接复用的完整缓存。'
+  const rawManageable = rawStatus === 'ready' || rawStatus === 'mismatch'
+  const softManageable = softStatus === 'ready' || softStatus === 'incomplete'
 
   return {
     ok: true,
@@ -688,6 +690,24 @@ async function inspectCacheStatus(args: {
     cacheKey: `${sourceHash}-${paramsHash}`,
     cacheHitStatus,
     cacheHitMessage,
+    cacheManagement: {
+      raw: {
+        dir: rawDir,
+        manageable: rawManageable,
+        reason: rawManageable
+          ? 'Raw 目录符合当前缓存命名规则，可作为后续缓存管理对象。'
+          : '没有发现 Raw 目录或目录为空，暂不纳入缓存管理。'
+      },
+      soft: {
+        dir: softDir,
+        manageable: softManageable,
+        reason: softManageable
+          ? 'Soft 目录符合当前输出命名规则，可作为后续缓存管理对象。'
+          : '没有发现 Soft 目录或目录为空，暂不纳入缓存管理。'
+      },
+      cleanupAllowed: false,
+      cleanupReason: '当前阶段只做缓存识别与规则准备，不允许自动或手动清理缓存。'
+    },
     rawStatus,
     softStatus,
     rawMessage: rawValidation.ok
@@ -1896,6 +1916,20 @@ ipcMain.handle('cache:inspect-status', async (_event, args) => {
       cacheKey: '',
       cacheHitStatus: 'none',
       cacheHitMessage: '缓存状态读取失败。',
+      cacheManagement: {
+        raw: {
+          dir: '',
+          manageable: false,
+          reason: '缓存状态读取失败。'
+        },
+        soft: {
+          dir: '',
+          manageable: false,
+          reason: '缓存状态读取失败。'
+        },
+        cleanupAllowed: false,
+        cleanupReason: '缓存状态读取失败，不能清理缓存。'
+      },
       rawStatus: 'missing',
       softStatus: 'missing',
       rawMessage: '缓存状态读取失败。',
