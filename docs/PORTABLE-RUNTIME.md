@@ -260,12 +260,14 @@ PYTHONPATH 是否指向 tools/Lib/site-packages
 
 ```text
 runtime-tools/rembg_runner.py
+runtime-tools/postprocess/batch_clean_cutout_soft.py
 ```
 
 构建时再复制到：
 
 ```text
 portable-root/tools/rembg_runner.py
+portable-root/tools/postprocess/batch_clean_cutout_soft.py
 ```
 
 不要为了保存脚本而提交完整 `portable-root/`。

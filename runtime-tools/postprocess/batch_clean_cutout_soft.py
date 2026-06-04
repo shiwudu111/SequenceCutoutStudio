@@ -1,0 +1,151 @@
+from PIL import Image, ImageFilter
+from pathlib import Path
+import numpy as np
+import argparse
+import json
+import time
+
+
+def estimate_bg_color(img):
+    arr = np.array(img.convert("RGB"), dtype=np.float32)
+    h, w, _ = arr.shape
+
+    pad_x = max(8, w // 20)
+    pad_y = max(8, h // 20)
+
+    samples = [
+        arr[0:pad_y, 0:pad_x].reshape(-1, 3),
+        arr[0:pad_y, w - pad_x : w].reshape(-1, 3),
+        arr[h - pad_y : h, 0:pad_x].reshape(-1, 3),
+        arr[h - pad_y : h, w - pad_x : w].reshape(-1, 3),
+    ]
+
+    return np.concatenate(samples, axis=0).mean(axis=0)
+
+
+def gentle_clean(original_path, cutout_path, output_path, alpha_low, shrink):
+    original = Image.open(original_path).convert("RGBA")
+    cutout = Image.open(cutout_path).convert("RGBA")
+
+    if original.size != cutout.size:
+        raise ValueError(f"尺寸不一致：{original_path} {original.size} vs {cutout_path} {cutout.size}")
+
+    orig_arr = np.array(original, dtype=np.float32)
+    cut_arr = np.array(cutout, dtype=np.float32)
+
+    rgb = orig_arr[..., :3].copy()
+    alpha = cut_arr[..., 3].copy()
+
+    alpha[alpha < alpha_low] = 0
+
+    alpha_img = Image.fromarray(alpha.clip(0, 255).astype(np.uint8), mode="L")
+    alpha_eroded = alpha_img.filter(ImageFilter.MinFilter(3))
+    alpha_eroded = np.array(alpha_eroded, dtype=np.float32)
+
+    alpha = alpha * (1.0 - shrink) + alpha_eroded * shrink
+
+    alpha_img = Image.fromarray(alpha.clip(0, 255).astype(np.uint8), mode="L")
+    alpha_img = alpha_img.filter(ImageFilter.GaussianBlur(radius=0.6))
+    alpha = np.array(alpha_img, dtype=np.float32)
+
+    bg = estimate_bg_color(original)
+    a = np.clip(alpha / 255.0, 1e-6, 1.0)
+
+    rgb_clean = rgb.copy()
+    for c in range(3):
+        rgb_clean[..., c] = (rgb[..., c] - bg[c] * (1.0 - a)) / a
+
+    rgb_clean = np.clip(rgb_clean, 0, 255)
+
+    mask0 = alpha <= 0.5
+    rgb_clean[mask0] = 0
+
+    out = np.dstack([rgb_clean, alpha.clip(0, 255)])
+    out = Image.fromarray(out.astype(np.uint8), mode="RGBA")
+
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    out.save(output_path)
+
+
+def collect_pngs(path):
+    path = Path(path)
+    if path.is_file():
+        return [path]
+    return sorted(path.glob("*.png"))
+
+
+def main():
+    parser = argparse.ArgumentParser(description="Sequence Cutout Studio soft edge postprocess")
+    parser.add_argument("--original", required=True, help="原始 PNG 文件或目录")
+    parser.add_argument("--raw", required=True, help="rembg raw PNG 文件或目录")
+    parser.add_argument("--output", required=True, help="输出 PNG 文件或目录")
+    parser.add_argument("--alpha-low", type=int, default=48)
+    parser.add_argument("--shrink", type=float, default=0.78)
+    parser.add_argument("--log", default="")
+    args = parser.parse_args()
+
+    start = time.time()
+
+    original_path = Path(args.original)
+    raw_path = Path(args.raw)
+    output_path = Path(args.output)
+
+    if not original_path.exists():
+        raise FileNotFoundError(f"找不到 original：{original_path}")
+    if not raw_path.exists():
+        raise FileNotFoundError(f"找不到 raw：{raw_path}")
+
+    original_files = collect_pngs(original_path)
+    processed = 0
+    skipped = 0
+    errors = []
+
+    if original_path.is_file():
+        raw_file = raw_path
+        out_file = output_path
+        try:
+            gentle_clean(original_path, raw_file, out_file, args.alpha_low, args.shrink)
+            processed += 1
+        except Exception as e:
+            errors.append(str(e))
+    else:
+        output_path.mkdir(parents=True, exist_ok=True)
+
+        for original_file in original_files:
+            raw_file = raw_path / original_file.name
+            out_file = output_path / original_file.name
+
+            if not raw_file.exists():
+                skipped += 1
+                errors.append(f"跳过，找不到 raw：{raw_file}")
+                continue
+
+            try:
+                gentle_clean(original_file, raw_file, out_file, args.alpha_low, args.shrink)
+                processed += 1
+            except Exception as e:
+                skipped += 1
+                errors.append(f"{original_file.name}: {e}")
+
+    result = {
+        "processed": processed,
+        "skipped": skipped,
+        "errors": errors,
+        "alphaLow": args.alpha_low,
+        "shrink": args.shrink,
+        "elapsedSeconds": round(time.time() - start, 3),
+    }
+
+    print(json.dumps(result, ensure_ascii=False, indent=2))
+
+    if args.log:
+        log_path = Path(args.log)
+        log_path.parent.mkdir(parents=True, exist_ok=True)
+        log_path.write_text(json.dumps(result, ensure_ascii=False, indent=2), encoding="utf-8")
+
+    if errors:
+        raise SystemExit(1)
+
+
+if __name__ == "__main__":
+    main()

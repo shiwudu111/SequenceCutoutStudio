@@ -43,6 +43,29 @@ function Assert-NotExists {
     }
 }
 
+function Sync-RuntimeToolSources {
+    param([string]$Root)
+
+    $runtimeToolsDir = Join-Path $Root "runtime-tools"
+    $portableToolsDir = Join-Path $Root "portable-root\tools"
+    $postprocessTargetDir = Join-Path $portableToolsDir "postprocess"
+
+    Assert-Exists -Path $runtimeToolsDir -Message "Runtime tool source directory was not found."
+    Assert-Exists -Path $portableToolsDir -Message "Portable runtime tools directory was not found."
+
+    $rembgRunnerSource = Join-Path $runtimeToolsDir "rembg_runner.py"
+    $rembgRunnerTarget = Join-Path $portableToolsDir "rembg_runner.py"
+    $postprocessSource = Join-Path $runtimeToolsDir "postprocess\batch_clean_cutout_soft.py"
+    $postprocessTarget = Join-Path $postprocessTargetDir "batch_clean_cutout_soft.py"
+
+    Assert-Exists -Path $rembgRunnerSource -Message "Tracked rembg runner source was not found."
+    Assert-Exists -Path $postprocessSource -Message "Tracked postprocess source was not found."
+
+    New-Item -ItemType Directory -Path $postprocessTargetDir -Force | Out-Null
+    Copy-Item -LiteralPath $rembgRunnerSource -Destination $rembgRunnerTarget -Force
+    Copy-Item -LiteralPath $postprocessSource -Destination $postprocessTarget -Force
+}
+
 function Wait-ForPath {
     param(
         [string]$Path,
@@ -362,6 +385,9 @@ Start-Transcript -Path $logPath -Force | Out-Null
 
 try {
 
+Write-Step "Syncing tracked runtime tool scripts"
+Sync-RuntimeToolSources -Root $root
+
 Write-Step "Building renderer and Electron main process"
 Invoke-CommandChecked -FilePath "npm.cmd" -Arguments @("run", "build") -WorkingDirectory $root
 
@@ -453,6 +479,7 @@ $pythonExe = Join-Path $finalRoot "tools\python\python.exe"
 $requiredPaths = @(
     $pythonExe,
     (Join-Path $finalRoot "tools\rembg_runner.py"),
+    (Join-Path $finalRoot "tools\postprocess\batch_clean_cutout_soft.py"),
     (Join-Path $finalRoot "tools\Lib\site-packages\rembg"),
     (Join-Path $finalRoot "tools\Lib\site-packages\onnxruntime"),
     (Join-Path $finalRoot "tools\Lib\site-packages\PIL"),

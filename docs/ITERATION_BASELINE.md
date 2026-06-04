@@ -2,7 +2,7 @@
 
 版本定位：第一版内测绿色包已通过，进入发布流程固化与下一轮功能开发准备
 
-当前阶段：Phase 4F 处理效果增强推进中，Phase 4F-2 已完成
+当前阶段：Phase 4F 处理效果增强推进中，Phase 4F-3 已完成
 
 基线日期：2026-05-28
 
@@ -692,7 +692,7 @@ Phase 4E 最终收口：
 
 # Phase 4F：处理效果增强
 
-状态：进行中，Phase 4F-2 已完成。
+状态：进行中，Phase 4F-3 已完成。
 
 目标：提升输出质量，让边缘更干净、更稳定，更适合游戏资源使用。
 
@@ -770,6 +770,18 @@ Phase 4F-2 阶段回顾：
 绿色包验证：本次未重新打包，不涉及 portable Python / rembg / postprocess 链路修改。
 稳定链路影响：不改变 portable Python / rembg_runner / postprocess 调用链路，不恢复 .venv，不调用 rembg.exe。
 下个阶段唯一主目标：Phase 4F-3 postprocess 源码落点与构建同步检查，不改算法效果。
+```
+
+Phase 4F-3 阶段回顾：
+
+```text
+目标是否完成：已完成。
+实际完成：新增 runtime-tools/postprocess/batch_clean_cutout_soft.py 作为可追踪 postprocess 源码；build-internal.ps1 打包前同步 runtime-tools/rembg_runner.py 和 runtime-tools/postprocess/batch_clean_cutout_soft.py 到 portable-root/tools；最终包必需文件检查新增 tools/postprocess/batch_clean_cutout_soft.py；BUILD-INTERNAL.md 和 PORTABLE-RUNTIME.md 记录源码落点与同步规则。
+本阶段边界：只建立源码落点和构建同步；不改 postprocess 算法效果；不改 rembg / portable Python / launcher 运行链路；不恢复 .venv；不改变 C / F / I 参数值。
+验证命令：tsc --noEmit 通过；npm.cmd run build 通过；build-internal.ps1 通过；Python import rembg / onnxruntime / PIL,numpy 通过；最终包无 tools/rembg/.venv；zip 大小已记录。
+绿色包验证：本阶段重新打包用于验证构建同步，不做手工完整业务流验收。
+稳定链路影响：仍通过 tools/python/python.exe 调用 tools/rembg_runner.py 和 tools/postprocess/batch_clean_cutout_soft.py，不调用 rembg.exe。
+下个阶段唯一主目标：Phase 4F-4 边缘颜色修正的最小可回退实现。
 ```
 
 ---

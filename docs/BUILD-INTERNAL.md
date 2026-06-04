@@ -76,6 +76,20 @@ tools/ffmpeg/ffmpeg.exe
 tools/pyvenv.cfg
 ```
 
+可追踪运行时脚本源码放在：
+
+```text
+runtime-tools/rembg_runner.py
+runtime-tools/postprocess/batch_clean_cutout_soft.py
+```
+
+`scripts/build-internal.ps1` 会在打包前同步到：
+
+```text
+portable-root/tools/rembg_runner.py
+portable-root/tools/postprocess/batch_clean_cutout_soft.py
+```
+
 不要恢复或依赖：
 
 ```text
@@ -167,19 +181,20 @@ release/SequenceCutoutStudio-Internal-v0.4.0-internal.1-win-x64.zip
 脚本当前会自动执行：
 
 ```text
-1. npm.cmd run build
-2. npx.cmd electron-builder --win dir
-3. 清理 release/win-unpacked/resources/portable-root/tools/rembg/.venv
-4. 清理 release/win-unpacked/resources/portable-root/tools/rembg
-5. 清理 sample 输出目录
-6. 组装 release/SequenceCutoutStudio-Internal/app
-7. 使用 csc.exe 编译 launcher
-8. 嵌入 build/icon.ico 和 build/splash.bmp
-9. 使用 ResourceHacker 替换 Win32 icon resource
-10. 验证 portable runtime 布局
-11. 验证 Python import
-12. 压缩内部绿色包 zip
-13. 输出 zip 路径和 zip 体积
+1. 同步 runtime-tools 中的可追踪运行时脚本到 portable-root
+2. npm.cmd run build
+3. npx.cmd electron-builder --win dir
+4. 清理 release/win-unpacked/resources/portable-root/tools/rembg/.venv
+5. 清理 release/win-unpacked/resources/portable-root/tools/rembg
+6. 清理 sample 输出目录
+7. 组装 release/SequenceCutoutStudio-Internal/app
+8. 使用 csc.exe 编译 launcher
+9. 嵌入 build/icon.ico 和 build/splash.bmp
+10. 使用 ResourceHacker 替换 Win32 icon resource
+11. 验证 portable runtime 布局
+12. 验证 Python import
+13. 压缩内部绿色包 zip
+14. 输出 zip 路径和 zip 体积
 ```
 
 脚本会写入日志：
