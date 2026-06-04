@@ -2,7 +2,7 @@
 
 版本定位：第一版内测绿色包已通过，进入发布流程固化与下一轮功能开发准备
 
-当前阶段：Phase 4F 处理效果增强推进中，Phase 4F-6 已完成
+当前阶段：Phase 4F 处理效果增强已收口，下一阶段进入 Phase 5 正式发布包装
 
 基线日期：2026-05-28
 
@@ -134,7 +134,7 @@ Phase 4B：预览体验与帧导航                  已完成
 Phase 4C：任务队列与批处理稳定化            已完成
 Phase 4D：导出系统                         已完成
 Phase 4E：缓存系统                         已完成
-Phase 4F：处理效果增强                     进行中
+Phase 4F：处理效果增强                     已完成
 Phase 5：正式发布包装
 ```
 
@@ -692,7 +692,7 @@ Phase 4E 最终收口：
 
 # Phase 4F：处理效果增强
 
-状态：进行中，Phase 4F-6 已完成。
+状态：已完成。
 
 目标：提升输出质量，让边缘更干净、更稳定，更适合游戏资源使用。
 
@@ -826,11 +826,24 @@ Phase 4F-6 阶段回顾：
 下个阶段唯一主目标：Phase 4F 收口评估，决定是否继续处理效果增强或转入 Phase 5 正式发布包装。
 ```
 
+Phase 4F 最终收口：
+
+```text
+目标是否完成：已完成当前内测阶段需要的处理效果增强。
+实际完成：C / F / I / Custom 用户可见命名优化；postprocess 源码纳入 runtime-tools 并由 build-internal.ps1 同步；新增可回退边缘颜色修正；真实样例确认默认 edgeColorFixStrength=0.35；绿色包命令级主链路 sample_video.mp4 → frames → raw → soft_I 验收通过。
+最终边界：不继续扩算法；不新增 UI 参数；不做毛发 / 尾巴专门优化；不做帧间一致性算法；不改 C / F / I 的 alphaLow / shrink 参数值；不改 rembg / portable Python / launcher 运行链路。
+验证汇总：tsc --noEmit 通过；npm.cmd run build 通过；build-internal.ps1 通过；Python import rembg / onnxruntime / PIL,numpy 通过；真实样例 16 帧对比通过；绿色包命令级主链路通过；最终包无 tools/rembg/.venv；zip 大小 553.83 MB。
+稳定链路影响：仍通过 tools/python/python.exe 调用 tools/rembg_runner.py 和 tools/postprocess/batch_clean_cutout_soft.py；不调用 rembg.exe；不恢复 .venv。
+后置内容：更细边缘参数、半透明区域高级优化、毛发 / 尾巴细节边缘优化、帧间闪动检查、同一序列帧参数一致性优化，放到正式版发布后的效果专项迭代。
+收口判断：Phase 4F 可以收口；下一阶段转入 Phase 5 正式发布包装。
+下个阶段唯一主目标：Phase 5-1 发布前版本与产物核对，先确认版本号、zip、launcher、portable runtime、文档和发布清单，不新增功能。
+```
+
 ---
 
 # Phase 5：正式发布包装
 
-状态：远期阶段。
+状态：下一阶段。
 
 建议路线：
 
