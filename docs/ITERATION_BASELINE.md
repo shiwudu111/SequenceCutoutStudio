@@ -2,7 +2,7 @@
 
 版本定位：第一版内测绿色包已通过，进入发布流程固化与下一轮功能开发准备
 
-当前阶段：Phase 5 正式发布包装推进中，Phase 5-3 已完成
+当前阶段：Phase 5 正式发布包装已收口，0.4.0-internal.1 可交付内测
 
 基线日期：2026-05-28
 
@@ -843,7 +843,7 @@ Phase 4F 最终收口：
 
 # Phase 5：正式发布包装
 
-状态：进行中，Phase 5-3 已完成。
+状态：已完成。
 
 建议路线：
 
@@ -889,6 +889,23 @@ Phase 5-3 阶段回顾：
 验证命令：tsc --noEmit 通过；npm.cmd run build 通过；build-internal.ps1 通过；Python import rembg / onnxruntime / PIL,numpy 在脚本内通过；最终 zip 大小 552.75 MB。
 本阶段边界：只修正发布阶段显示文案并做 GUI 冒烟；不新增功能；不改 rembg / portable Python / postprocess / launcher 逻辑。
 下个阶段唯一主目标：Phase 5-4 最终发布前清点与收口，确认是否可以交付当前 zip 给内测用户。
+```
+
+Phase 5-4 最终收口：
+
+```text
+目标是否完成：已完成。
+交付判断：当前 0.4.0-internal.1 绿色包可以交付内测用户。
+交付文件：release/SequenceCutoutStudio-Internal-v0.4.0-internal.1-win-x64.zip。
+zip 大小：552.75 MB。
+交付形态：绿色 zip + 顶层 SequenceCutoutStudio-Internal.exe + app/ 目录。
+启动方式：测试者解压 zip 后双击顶层 SequenceCutoutStudio-Internal.exe，不直接运行 app/SequenceCutoutStudio.exe。
+最终核对：launcher 存在；Electron exe 存在；portable Python 存在；rembg_runner.py 存在；postprocess 脚本存在；模型存在；FFmpeg 存在；pyvenv.cfg 存在；无 tools/rembg/.venv；无 tools/rembg。
+验证汇总：build-internal.ps1 通过；GUI 冒烟通过；Python import rembg / onnxruntime / PIL,numpy 通过；环境自检 12/12 项通过；绿色包命令级主链路通过。
+交付文档：docs/INTERNAL-RELEASE.md；docs/INTERNAL-FEEDBACK.md；docs/BUILD-INTERNAL.md；docs/PORTABLE-RUNTIME.md。
+已知边界：不含安装器、自动更新、账号系统、云端处理、任务队列取消、完整缓存清理、Sprite Sheet / plist / TexturePacker 导出。
+收口判断：Phase 5 可以收口；下一步进入内测发包与反馈跟踪，不再在 0.4.0-internal.1 上新增功能。
+下个阶段唯一主目标：内测反馈跟踪，按反馈决定 0.4.0-internal.2 的修复项。
 ```
 
 ---
