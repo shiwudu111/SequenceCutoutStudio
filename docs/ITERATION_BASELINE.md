@@ -2,7 +2,7 @@
 
 版本定位：第一版内测绿色包已通过，进入发布流程固化与下一轮功能开发准备
 
-当前阶段：Phase 4E 缓存系统推进中，Phase 4E-5 已完成
+当前阶段：Phase 4E 缓存系统已收口，下一阶段进入 Phase 4F 处理效果增强
 
 基线日期：2026-05-28
 
@@ -133,8 +133,8 @@ Phase 4A：工程系统 Project System          已废弃前端入口
 Phase 4B：预览体验与帧导航                  已完成
 Phase 4C：任务队列与批处理稳定化            已完成
 Phase 4D：导出系统                         已完成
-Phase 4E：缓存系统                         进行中
-Phase 4F：处理效果增强
+Phase 4E：缓存系统                         已完成
+Phase 4F：处理效果增强                     下一阶段
 Phase 5：正式发布包装
 ```
 
@@ -580,7 +580,7 @@ Phase 4D 最终收口：
 
 # Phase 4E：缓存系统
 
-状态：进行中，Phase 4E-5 已完成。
+状态：已完成。
 
 目标：减少重复处理，提高处理效率。
 
@@ -600,7 +600,7 @@ source + model + params -> cache key
 [x] Raw 缓存管理规则
 [x] Soft 缓存管理规则
 [x] 缓存命中提示
-[ ] 清理缓存功能
+[ ] 清理缓存功能（正式版后评估）
 [x] 缓存占用大小显示
 ```
 
@@ -676,11 +676,23 @@ Phase 4E-5 阶段回顾：
 下个阶段唯一主目标：Phase 4E 收口评估，决定是否后置清理缓存功能。
 ```
 
+Phase 4E 最终收口：
+
+```text
+目标是否完成：已完成当前内测阶段需要的缓存只读识别与提示。
+实际完成：Raw / Soft 状态识别；缓存状态日志提示；sourceHash、paramsHash 和 cacheKey 底座；cacheHitStatus / cacheHitMessage；cacheManagement 只读管理规则；缓存占用大小统计。
+最终边界：清理缓存功能后置到正式版后评估；不做删除、不做自动跳过、不做自动复用、不改变处理链路。
+验证命令：tsc --noEmit 通过；npm.cmd run build 通过。
+绿色包验证：本阶段未重新打包，不涉及 portable Python / rembg / postprocess 链路修改。
+稳定链路影响：不改变 portable Python / rembg_runner / postprocess 调用链路，不恢复 .venv，不调用 rembg.exe。
+下个阶段唯一主目标：Phase 4F-1 参数命名与预设文案优化，只改用户可见命名，不改算法参数。
+```
+
 ---
 
 # Phase 4F：处理效果增强
 
-状态：后续阶段。
+状态：下一阶段。
 
 目标：提升输出质量，让边缘更干净、更稳定，更适合游戏资源使用。
 
@@ -703,6 +715,15 @@ C：柔和边缘
 F：标准边缘
 I：干净收边
 Custom：自定义
+```
+
+Phase 4F-1 建议目标：
+
+```text
+只做参数命名与预设文案优化，不改变处理算法。
+目标：把 C / F / I 的用户可见文案统一为柔和边缘、标准边缘、干净收边；让日志、按钮附近说明和 preset 显示更适合美术用户理解。
+不做：不改 alphaLow / shrink 默认值，不改 postprocess 脚本，不改 rembg / portable Python / launcher / 打包链路。
+验收：tsc --noEmit；npm.cmd run build。
 ```
 
 ---
