@@ -2,7 +2,7 @@
 
 版本定位：第一版内测绿色包已通过，进入发布流程固化与下一轮功能开发准备
 
-当前阶段：Phase 4F 处理效果增强推进中，Phase 4F-5 已完成
+当前阶段：Phase 4F 处理效果增强推进中，Phase 4F-6 已完成
 
 基线日期：2026-05-28
 
@@ -692,7 +692,7 @@ Phase 4E 最终收口：
 
 # Phase 4F：处理效果增强
 
-状态：进行中，Phase 4F-5 已完成。
+状态：进行中，Phase 4F-6 已完成。
 
 目标：提升输出质量，让边缘更干净、更稳定，更适合游戏资源使用。
 
@@ -811,6 +811,19 @@ Phase 4F-5 阶段回顾：
 绿色包验证：使用 release 内 portable Python 与 postprocess 运行样例验证；本阶段未重新打包。
 稳定链路影响：不改变 portable Python / rembg_runner / postprocess 调用链路，不调用 rembg.exe。
 下个阶段唯一主目标：Phase 4F-6 绿色包完整业务流验收，确认边缘颜色修正在软件主流程中可用。
+```
+
+Phase 4F-6 阶段回顾：
+
+```text
+目标是否完成：已完成。
+实际完成：使用绿色包 release/SequenceCutoutStudio-Internal 内的 ffmpeg、portable Python、rembg_runner.py 和 postprocess 脚本跑通命令级主流程：sample_video.mp4 → frames → raw → soft_I。
+验收产物：release/phase-4f-6-green-flow/frames；release/phase-4f-6-green-flow/raw；release/phase-4f-6-green-flow/soft_I；release/phase-4f-6-green-flow/postprocess.json。
+关键结果：视频切帧 16 张；Raw 输出 16 张；Soft 输出 16 张；尺寸均为 960x720；Raw / Soft 均带 alpha；postprocess processed=16、skipped=0、errors=[]、edgeColorFix=true、edgeColorFixStrength=0.35、edgeColorFixedPixels=166058。
+验证命令：绿色包 ffmpeg 切帧通过；绿色包 rembg_runner batch 通过；绿色包 postprocess 通过；Python import rembg / onnxruntime / PIL,numpy 通过；最终包无 tools/rembg/.venv；zip 大小 553.83 MB。
+本阶段边界：命令级绿色包主链路验收通过；未做 GUI 手工点击验收；未改算法；未改 UI；未改 rembg / portable Python / launcher 运行链路。
+稳定链路影响：确认仍通过 tools/python/python.exe 调用 tools/rembg_runner.py 和 tools/postprocess/batch_clean_cutout_soft.py，不调用 rembg.exe。
+下个阶段唯一主目标：Phase 4F 收口评估，决定是否继续处理效果增强或转入 Phase 5 正式发布包装。
 ```
 
 ---
