@@ -2,7 +2,7 @@
 
 版本定位：第一版内测绿色包已通过，进入发布流程固化与下一轮功能开发准备
 
-当前阶段：Phase 4F 处理效果增强已收口，下一阶段进入 Phase 5 正式发布包装
+当前阶段：Phase 5 正式发布包装推进中，Phase 5-1 已完成
 
 基线日期：2026-05-28
 
@@ -135,7 +135,7 @@ Phase 4C：任务队列与批处理稳定化            已完成
 Phase 4D：导出系统                         已完成
 Phase 4E：缓存系统                         已完成
 Phase 4F：处理效果增强                     已完成
-Phase 5：正式发布包装
+Phase 5：正式发布包装                      进行中
 ```
 
 ---
@@ -843,7 +843,7 @@ Phase 4F 最终收口：
 
 # Phase 5：正式发布包装
 
-状态：下一阶段。
+状态：进行中，Phase 5-1 已完成。
 
 建议路线：
 
@@ -854,6 +854,18 @@ Phase 4F 最终收口：
 ```
 
 原因：当前项目包含 Python、模型、FFmpeg 和大量运行时文件，单文件 exe 对启动体验、排查问题和后续维护都不友好。
+
+Phase 5-1 阶段回顾：
+
+```text
+目标是否完成：已完成发布前版本与产物核对。
+实际完成：确认 package.json version=0.4.0-internal.1；确认绿色包目录结构为顶层 launcher + app；确认 release zip 已重新生成；确认 launcher、Electron exe、portable Python、rembg_runner.py、postprocess、模型、FFmpeg、pyvenv.cfg 均存在；确认 build/splash.png 作为启动图源图、build/splash.bmp 作为 launcher 嵌入资源；确认 splash.bmp 已由新源图生成并重新打包。
+关键产物：release/SequenceCutoutStudio-Internal-v0.4.0-internal.1-win-x64.zip，552.75 MB。
+验证命令：build-internal.ps1 通过；npm.cmd run build 在脚本内通过；Python import rembg / onnxruntime / PIL,numpy 在脚本内通过；最终包无 tools/rembg/.venv 和 tools/rembg。
+本阶段边界：只做发布前核对、启动图资源入库和文档记录；不新增功能；不改 rembg / portable Python / postprocess / launcher 逻辑。
+阻塞处理：首次打包因旧 SequenceCutoutStudio 进程占用 app.asar 失败；关闭占用进程后重跑通过。
+下个阶段唯一主目标：Phase 5-2 发布清单与内测交付说明，明确给测试者的 zip、启动方式、验收流程和已知边界。
+```
 
 ---
 

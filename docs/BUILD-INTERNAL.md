@@ -55,11 +55,14 @@ node_modules/
 portable-root/
 build/icon.ico
 build/icon.png
+build/splash.png
 build/splash.bmp
 launcher/SequenceCutoutStudioLauncher.cs
 ```
 
 其中 `portable-root/` 是本地大体积运行时目录，不进入 Git。
+
+`build/splash.png` 是启动图的可编辑源图，`build/splash.bmp` 是 launcher 构建时嵌入的 BMP 资源。修改启动图后，应重新生成 `build/splash.bmp` 并重新运行 `scripts/build-internal.ps1`。
 
 `portable-root/` 中必须包含：
 
