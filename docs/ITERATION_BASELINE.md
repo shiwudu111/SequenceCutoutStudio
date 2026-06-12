@@ -2,7 +2,7 @@
 
 版本定位：第一版内测绿色包已通过，进入发布流程固化与下一轮功能开发准备
 
-当前阶段：正式上线路线图已记录，下一步进入 Phase 6B 固定 UI 布局与功能承载边界
+当前阶段：Phase 6B 固定 UI 布局与功能承载边界已完成，下一步进入 Phase 6C 序列质量验收与问题帧检测
 
 基线日期：2026-05-28
 
@@ -136,8 +136,9 @@ Phase 4D：导出系统                         已完成
 Phase 4E：缓存系统                         已完成
 Phase 4F：处理效果增强                     已完成
 Phase 5：正式发布包装                      已完成
-Phase 6A：去背景质量评估                    进行中
-Phase 6B：固定 UI 布局与功能承载边界          待开始
+Phase 6A：去背景质量评估                    已完成
+Phase 6B：固定 UI 布局与功能承载边界          已完成
+Phase 6C：序列质量验收与问题帧检测             待开始
 ```
 
 ---
@@ -986,6 +987,65 @@ Phase 6H：正式包构建与上线验收
 UI 后续不新增主流程窗口；新增功能只进入对应面板。
 涉及绿色包、运行时、rembg、Python、postprocess、打包的修改，必须重新验证构建和 Python import。
 ```
+
+---
+
+# Phase 6B：固定 UI 布局与功能承载边界
+
+状态：已完成。
+
+目标：冻结主界面结构，后续功能只进入对应面板，不再新增主流程窗口。
+
+实际完成：
+
+```text
+[x] 新增 docs/UI-LAYOUT-RULES.md
+[x] 固定输入素材、处理参数、导出设置、预览检查、质量验收、处理日志六个主工作区面板
+[x] 将导出命名和导出 PNG 序列从处理参数面板拆到导出设置面板
+[x] 新增质量验收面板作为 Phase 6C 问题帧检测、数量一致性、alpha 波动的唯一承载区
+[x] CSS 从 nth-child 布局归属改为显式 input-panel / process-panel / export-panel / quality-panel / preview-panel / log-panel
+[x] 明确后续 Sprite Sheet、TexturePacker JSON、Cocos plist 只进入导出设置高级区
+[x] 明确后续问题帧、序列稳定性和验收报告只进入质量验收面板
+```
+
+本阶段边界：
+
+```text
+不实现问题帧检测。
+不实现 alpha 波动算法。
+不接入新模型。
+不改 rembg / postprocess / portable Python 链路。
+不新增主流程窗口。
+不重新打绿色包。
+```
+
+验证命令：
+
+```text
+.\node_modules\.bin\tsc.cmd --noEmit 通过。
+npm.cmd run build 通过。
+```
+
+验证说明：
+
+```text
+尝试使用本地 Vite / Electron 离屏截图检查 1366x768、1600x900、1920x1080 布局。
+当前环境 Electron 离屏加载返回 ERR_FAILED，截图验证未完成。
+该问题发生在验证工具层，不是 tsc / npm build 错误。
+后续如需视觉确认，可用正式 Electron 或绿色包 GUI 手工检查三种分辨率。
+```
+
+稳定链路影响：
+
+```text
+不影响 launcher。
+不影响 portable Python。
+不影响 rembg_runner。
+不影响 postprocess。
+不影响导出后端逻辑。
+```
+
+下个阶段唯一主目标：Phase 6C 序列质量验收与问题帧检测。
 
 ---
 

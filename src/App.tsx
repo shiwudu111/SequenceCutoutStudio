@@ -144,7 +144,7 @@ function App(): JSX.Element {
   const logsRef = useRef<HTMLDivElement | null>(null)
   const [logs, setLogs] = useState<string[]>([
     'Sequence Cutout Studio 已启动。',
-    '当前阶段：Phase 5 - 正式发布包装。'
+    '当前阶段：Phase 6B - 固定 UI 布局与功能承载边界。'
   ])
 
   const appendLog = (line: string): void => {
@@ -1319,8 +1319,8 @@ function App(): JSX.Element {
 
         <div className="phase-card">
           <span>当前阶段</span>
-          <strong>Phase 5</strong>
-          <p>发布前核对、内测交付说明和绿色包冒烟验收。</p>
+          <strong>Phase 6B</strong>
+          <p>固定输入、处理、预览、导出、质量验收和日志面板边界。</p>
           <small>{appVersion ? `v${appVersion}` : '读取版本中...'}</small>
         </div>
 
@@ -1414,7 +1414,7 @@ function App(): JSX.Element {
         </header>
 
         <div className="content-grid">
-          <section className="panel controls-panel">
+          <section className="panel controls-panel input-panel">
             <div className="panel-header">
               <h3>输入素材</h3>
               <span>Input</span>
@@ -1517,10 +1517,10 @@ function App(): JSX.Element {
             </div>
           </section>
 
-          <section className="panel controls-panel">
+          <section className="panel controls-panel process-panel">
             <div className="panel-header">
               <h3>处理参数</h3>
-              <span>边缘预设</span>
+              <span>Process</span>
             </div>
 
             <div className="preset-row">
@@ -1556,6 +1556,62 @@ function App(): JSX.Element {
                 onChange={(event) => setShrink(Number(event.target.value))}
               />
             </label>
+
+            <div className="button-row">
+              <button
+                className="primary-button"
+                onClick={handleRunSingleCutout}
+                disabled={isTestingSingle || !selectedFolder || !previewFrameName}
+              >
+                {isTestingSingle ? '测试中...' : '测试单帧'}
+              </button>
+
+              <button
+                className="secondary-button"
+                onClick={handleRunCompareCutout}
+                disabled={isComparing || !selectedFolder || !previewFrameName}
+              >
+                {isComparing ? '对比中...' : '生成对比'}
+              </button>
+
+              <button
+                className="primary-button"
+                onClick={() => {
+                  void handleRunBatchCutout()
+                }}
+                disabled={isProcessing}
+              >
+                {isProcessing ? '处理中...' : '批量处理'}
+              </button>
+              <button
+                className="secondary-button"
+                onClick={() => {
+                  void handleRunBatchCutout({ skipRembg: true })
+                }}
+                disabled={isProcessing || !selectedFolder}
+              >
+                只重跑边缘
+              </button>
+              <button className="secondary-button" onClick={handleSaveProcessConfig} disabled={!selectedFolder}>
+                保存参数
+              </button>
+
+              <button className="secondary-button" onClick={handleLoadProcessConfig} disabled={!selectedFolder}>
+                读取参数
+              </button>
+            </div>
+
+            <div className="config-status">
+              <span>{configMessage}</span>
+              {configPath ? <strong>{configPath}</strong> : null}
+            </div>
+          </section>
+
+          <section className="panel export-panel">
+            <div className="panel-header">
+              <h3>导出设置</h3>
+              <span>Export</span>
+            </div>
 
             <div className="export-naming-row">
               <label className="field">
@@ -1593,62 +1649,46 @@ function App(): JSX.Element {
             </div>
 
             <div className="button-row">
-              <button
-                className="primary-button"
-                onClick={handleRunSingleCutout}
-                disabled={isTestingSingle || !selectedFolder || !previewFrameName}
-              >
-                {isTestingSingle ? '测试中...' : '测试单帧'}
-              </button>
-
-              <button
-                className="secondary-button"
-                onClick={handleRunCompareCutout}
-                disabled={isComparing || !selectedFolder || !previewFrameName}
-              >
-                {isComparing ? '对比中...' : '生成对比'}
-              </button>
-
-              <button
-                className="primary-button"
-                onClick={() => {
-                  void handleRunBatchCutout()
-                }}
-                disabled={isProcessing}
-              >
-                {isProcessing ? '处理中...' : '批量处理'}
-              </button>
-              <button
-                className="secondary-button"
-                onClick={() => {
-                  void handleRunBatchCutout({ skipRembg: true })
-                }}
-                disabled={isProcessing || !selectedFolder}
-              >
-                只重跑边缘
-              </button>
               <button className="secondary-button" onClick={handleOpenOutputFolder} disabled={!outputFolder}>
                 打开输出目录
               </button>
               <button
-                className="secondary-button"
+                className="primary-button"
                 onClick={handleExportTransparentPngSequence}
                 disabled={isExporting || isProcessing || !softFolder}
               >
                 {isExporting ? '导出中...' : '导出 PNG 序列'}
               </button>
-              <button className="secondary-button" onClick={handleSaveProcessConfig} disabled={!selectedFolder}>
-                保存参数
-              </button>
-
-              <button className="secondary-button" onClick={handleLoadProcessConfig} disabled={!selectedFolder}>
-                读取参数
-              </button>
             </div>
 
-            <div className="config-status">
-              <span>{configMessage}</span>
-              {configPath ? <strong>{configPath}</strong> : null}
+            <div className="panel-note">
+              后续 Sprite Sheet、TexturePacker JSON、Cocos plist 只在本面板高级区扩展。
+            </div>
+          </section>
+
+          <section className="panel quality-panel">
+            <div className="panel-header">
+              <h3>质量验收</h3>
+              <span>Quality</span>
+            </div>
+
+            <div className="quality-summary">
+              <div>
+                <span>当前状态</span>
+                <strong>{batchTask ? batchTask.currentStage : '等待批处理结果'}</strong>
+              </div>
+              <div>
+                <span>输出帧数</span>
+                <strong>{batchTask ? `${batchTask.outputCount} / ${batchTask.totalCount}` : '-'}</strong>
+              </div>
+              <div>
+                <span>问题帧检测</span>
+                <strong>Phase 6C 接入</strong>
+              </div>
+            </div>
+
+            <div className="panel-note">
+              后续数量一致性、alpha 波动、疑似闪烁帧和问题帧跳转统一进入本面板。
             </div>
           </section>
 

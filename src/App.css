@@ -701,10 +701,11 @@ button:disabled {
 .content-grid {
   display: grid;
   grid-template-areas:
-    "input params preview"
-    "input params logs";
-  grid-template-columns: minmax(300px, 0.85fr) minmax(300px, 0.85fr) minmax(460px, 1.45fr);
-  grid-template-rows: auto auto;
+    "input process preview"
+    "export quality preview"
+    "logs logs logs";
+  grid-template-columns: minmax(300px, 0.85fr) minmax(320px, 0.95fr) minmax(500px, 1.45fr);
+  grid-template-rows: auto auto minmax(220px, auto);
   gap: 18px;
   align-items: start;
 }
@@ -713,19 +714,26 @@ button:disabled {
   min-height: 0;
 }
 
-/* 左栏：输入素材，跨两行 */
-.content-grid > section:nth-child(1) {
+.input-panel {
   grid-area: input;
   overflow: auto;
 }
 
-/* 中栏：处理参数，跨两行 */
-.content-grid > section:nth-child(2) {
-  grid-area: params;
+.process-panel {
+  grid-area: process;
   overflow: auto;
 }
 
-/* 右上：预览检查 */
+.export-panel {
+  grid-area: export;
+  overflow: auto;
+}
+
+.quality-panel {
+  grid-area: quality;
+  overflow: auto;
+}
+
 .preview-panel {
   grid-area: preview;
   display: flex;
@@ -750,7 +758,6 @@ button:disabled {
   flex: 0 0 auto;
 }
 
-/* 右下：处理日志 */
 .log-panel {
   grid-area: logs;
   display: flex;
@@ -764,9 +771,47 @@ button:disabled {
 
 .logs {
   flex: 1;
-  max-height: 280px;
+  max-height: 240px;
   min-height: 160px;
   overflow: auto;
+}
+
+.panel-note {
+  margin-top: 12px;
+  padding: 10px 12px;
+  border: 1px solid #dbe3ef;
+  border-radius: 14px;
+  color: #617086;
+  background: #f8fafc;
+  font-size: 12px;
+  line-height: 1.6;
+}
+
+.quality-summary {
+  display: grid;
+  gap: 10px;
+}
+
+.quality-summary div {
+  display: grid;
+  gap: 5px;
+  padding: 12px;
+  border: 1px solid #dbe3ef;
+  border-radius: 14px;
+  background: #f8fafc;
+}
+
+.quality-summary span {
+  color: #7a8798;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.quality-summary strong {
+  overflow: hidden;
+  color: #2f3e53;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 /* 压缩输入区，让内容更像工具面板 */
@@ -1050,33 +1095,24 @@ button:disabled {
   .content-grid {
     grid-template-areas:
       "input preview"
-      "params logs";
+      "process preview"
+      "export quality"
+      "logs logs";
     grid-template-columns: minmax(320px, 0.9fr) minmax(440px, 1.1fr);
-    grid-template-rows: auto auto;
+    grid-template-rows: auto auto auto minmax(220px, auto);
   }
 
-  .content-grid > section:nth-child(1),
-  .content-grid > section:nth-child(2),
+  .input-panel,
+  .process-panel,
+  .export-panel,
+  .quality-panel,
   .preview-panel,
   .log-panel {
     grid-column: auto;
     grid-row: auto;
   }
 
-  .content-grid > section:nth-child(1) {
-    grid-area: input;
-  }
-
-  .content-grid > section:nth-child(2) {
-    grid-area: params;
-  }
-
-  .preview-panel {
-    grid-area: preview;
-  }
-
   .log-panel {
-    grid-area: logs;
     min-height: 300px;
   }
 }
@@ -1093,27 +1129,13 @@ button:disabled {
   .content-grid {
     grid-template-areas:
       "input"
-      "params"
+      "process"
+      "export"
       "preview"
+      "quality"
       "logs";
     grid-template-columns: minmax(0, 1fr);
     grid-template-rows: auto;
-  }
-
-  .content-grid > section:nth-child(1) {
-    grid-area: input;
-  }
-
-  .content-grid > section:nth-child(2) {
-    grid-area: params;
-  }
-
-  .preview-panel {
-    grid-area: preview;
-  }
-
-  .log-panel {
-    grid-area: logs;
   }
 }
 
