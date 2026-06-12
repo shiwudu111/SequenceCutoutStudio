@@ -393,3 +393,23 @@ Soft I 当前适合做常规边缘清理，不适合作为万能修复步骤。
 09 毛发测试
 12 透明布料
 ```
+
+---
+
+## 15. 视觉验证图
+
+本轮测试生成了两类视觉验证图，方便和表格结论交叉核对。
+
+```text
+docs/phase-6a-visual-contact-sheet.jpg
+```
+
+用途：14 组样本总览，每组取中间帧，对比 Original / Raw / Soft I。
+
+```text
+docs/phase-6a-contact-sheets/
+```
+
+用途：逐样本详细拼图。每张图抽取 sample_0004、sample_0016、sample_0028、sample_0040 四帧，对比 Original / Raw / Soft I。
+
+说明：拼图适合快速检查漏抠、误删、脏边和半透明残留；闪烁问题仍需播放完整序列确认。
