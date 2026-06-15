@@ -19,9 +19,12 @@ process.env.VITE_PUBLIC = VITE_DEV_SERVER_URL
 
 let win: BrowserWindow | null
 
-const DEV_CORE_DIR = process.env.SCS_DEV_CORE_DIR ?? 'E:\\cuts'
+const DEV_CORE_DIR =
+  process.env.SCS_DEV_CORE_DIR ??
+  process.env.SCS_PORTABLE_ROOT ??
+  path.join(process.env.APP_ROOT, 'portable-root')
 const DEV_FFMPEG_EXE =
-  process.env.SCS_DEV_FFMPEG_EXE ?? 'D:\\Program Files\\FFmpeg\\bin\\ffmpeg.exe'
+  process.env.SCS_DEV_FFMPEG_EXE ?? path.join(DEV_CORE_DIR, 'tools', 'ffmpeg', 'ffmpeg.exe')
 const DEV_PYTHON_EXE =
   process.env.SCS_DEV_PYTHON_EXE ?? path.join(DEV_CORE_DIR, 'tools', 'python', 'python.exe')
 const DEV_POSTPROCESS_SCRIPT =

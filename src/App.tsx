@@ -84,6 +84,14 @@ const EDGE_PRESET_PARAMS: Record<Exclude<Preset, 'Custom'>, EdgePresetParams> = 
 
 const COMPARE_PRESETS: Preset[] = ['C', 'F', 'I', 'Custom']
 
+const PREVIEW_BACKGROUND_OPTIONS: Array<{ value: PreviewBackground; label: string }> = [
+  { value: 'checker', label: '棋盘' },
+  { value: 'black', label: '黑' },
+  { value: 'white', label: '白' },
+  { value: 'gray', label: '灰' },
+  { value: 'custom', label: '图' }
+]
+
 const getPresetName = (targetPreset: Preset): string =>
   targetPreset === 'Custom' ? '自定义' : EDGE_PRESET_PARAMS[targetPreset].label
 
@@ -235,8 +243,7 @@ function App(): JSX.Element {
       return
     }
 
-    void loadFrameByIndex(targetIndex)
-    focusPreviewPanel()
+    handleReviewFrameIndex(targetIndex)
   }
 
   const getBatchTaskTitle = (task: BatchTask): string => {
@@ -485,6 +492,23 @@ function App(): JSX.Element {
 
     await loadFrameByIndex(frameFiles.length - 1)
   }
+
+  const handleReviewFrameIndex = (targetIndex: number): void => {
+    setIsPlaying(false)
+
+    if (softFolder) {
+      setActivePreviewTab('soft')
+    } else if (rawFolder) {
+      setActivePreviewTab('raw')
+    } else {
+      setActivePreviewTab('original')
+    }
+
+    setActiveComparePreset(null)
+    void loadFrameByIndex(targetIndex)
+    focusPreviewPanel()
+  }
+
   const handleTogglePlayback = (): void => {
     if (frameFiles.length === 0) {
       appendLog('没有可播放的序列帧。')
@@ -1373,7 +1397,34 @@ function App(): JSX.Element {
       ? previewImages.soft || previewImages.raw
       : previewImages[activePreviewTab])
   const rulerTickIndexes = getRulerTickIndexes()
+  const hasOriginalPreview = Boolean(previewImages.original)
+  const hasRawPreview = Boolean(previewImages.raw)
+  const hasSoftPreview = Boolean(previewImages.soft)
   const hasCompareImages = Boolean(previewImages.raw && previewImages.soft)
+  const previewBackgroundLabel =
+    previewBackground === 'checker'
+      ? '棋盘格'
+      : previewBackground === 'black'
+        ? '黑底'
+        : previewBackground === 'white'
+          ? '白底'
+          : previewBackground === 'gray'
+            ? '灰底'
+            : '背景图'
+  const previewReadyText =
+    frameFiles.length === 0
+      ? '等待序列帧'
+      : `${hasRawPreview ? 'Raw 已就绪' : 'Raw 未生成'} / ${hasSoftPreview ? 'Soft 已就绪' : 'Soft 未生成'}`
+  const qualityIssueFrameIndexes = qualityReport
+    ? Array.from(
+      new Set(
+        qualityReport.issues
+          .map((issue) => (issue.fileName ? frameFiles.indexOf(issue.fileName) : -1))
+          .filter((frameIndex) => frameIndex >= 0)
+      )
+    ).sort((a, b) => a - b)
+    : []
+  const currentFrameHasQualityIssue = qualityIssueFrameIndexes.includes(currentFrameIndex)
 
   const selfCheckPassedCount =
     selfCheckResult?.items.filter((item: SelfCheckItem) => item.status === 'ok').length ?? 0
@@ -1835,44 +1886,28 @@ function App(): JSX.Element {
           >
             <div className="panel-header">
               <h3>预览检查：{displayPreviewTitle}</h3>
-              <div className="segmented">
-                <button
-                  className={previewBackground === 'checker' ? 'active' : ''}
-                  onClick={() => setPreviewBackground('checker')}
-                >
-                  棋盘格
-                </button>
-                <button
-                  className={previewBackground === 'black' ? 'active' : ''}
-                  onClick={() => setPreviewBackground('black')}
-                >
-                  黑底
-                </button>
-                <button
-                  className={previewBackground === 'white' ? 'active' : ''}
-                  onClick={() => setPreviewBackground('white')}
-                >
-                  白底
-                </button>
-                <button
-                  className={previewBackground === 'gray' ? 'active' : ''}
-                  onClick={() => setPreviewBackground('gray')}
-                >
-                  灰底
-                </button>
+              <div className="preview-background-controls" aria-label="预览背景">
+                {PREVIEW_BACKGROUND_OPTIONS.map((option) => {
+                  const isCustom = option.value === 'custom'
+                  const isDisabled = isCustom && !customPreviewBackgroundDataUrl
 
-                <button
-                  className={previewBackground === 'custom' ? 'active' : ''}
-                  onClick={() => setPreviewBackground('custom')}
-                  disabled={!customPreviewBackgroundDataUrl}
-                >
-                  背景图
-                </button>
+                  return (
+                    <button
+                      key={option.value}
+                      className={previewBackground === option.value ? 'active' : ''}
+                      onClick={() => setPreviewBackground(option.value)}
+                      disabled={isDisabled}
+                      title={isCustom ? '使用已选择的背景图' : `${option.label}底预览`}
+                    >
+                      <span className={`background-swatch ${option.value}`} />
+                      <span>{option.label}</span>
+                    </button>
+                  )
+                })}
 
-                <button onClick={handleSelectCustomPreviewBackground}>
-                  选择背景图
+                <button className="background-select-button" onClick={handleSelectCustomPreviewBackground}>
+                  选择背景
                 </button>
-
               </div>
             </div>
 
@@ -1906,6 +1941,11 @@ function App(): JSX.Element {
                   <div className="compare-slider-line" style={{ left: `${compareSplit}%` }}>
                     <span />
                   </div>
+                  <div className="compare-slider-status">
+                    <span>左 Raw</span>
+                    <strong>{compareSplit}%</strong>
+                    <span>右 Soft</span>
+                  </div>
                   <input
                     className="compare-slider-input"
                     type="range"
@@ -1936,6 +1976,13 @@ function App(): JSX.Element {
             </div>
             <div className="preview-hint">
               双击预览图可放大查看，Raw / Soft 对比可拖动分割线检查边缘。
+            </div>
+            <div className="preview-status-strip">
+              <span>{frameFiles.length > 0 ? `${currentFrameIndex + 1} / ${frameFiles.length}` : '0 / 0'}</span>
+              <span>{displayPreviewTitle}</span>
+              <span>{previewBackgroundLabel}</span>
+              {currentFrameHasQualityIssue ? <span className="warning">疑似问题帧</span> : null}
+              <strong>{previewReadyText}</strong>
             </div>
             <div className="frame-controls">
               <button onClick={handleGoToFirstFrame} disabled={frameFiles.length === 0}>
@@ -1984,7 +2031,12 @@ function App(): JSX.Element {
                   rulerTickIndexes.map((frameIndex) => (
                     <button
                       key={frameIndex}
-                      className={frameIndex === currentFrameIndex ? 'active' : ''}
+                      className={[
+                        frameIndex === currentFrameIndex ? 'active' : '',
+                        qualityIssueFrameIndexes.includes(frameIndex) ? 'issue' : ''
+                      ]
+                        .filter(Boolean)
+                        .join(' ')}
                       onClick={() => {
                         void loadFrameByIndex(frameIndex)
                       }}
@@ -2017,6 +2069,23 @@ function App(): JSX.Element {
                   : '-'}
               </span>
             </div>
+            {qualityIssueFrameIndexes.length > 0 ? (
+              <div className="issue-frame-row">
+                <span>疑似问题帧：</span>
+                {qualityIssueFrameIndexes.slice(0, 12).map((frameIndex) => (
+                  <button
+                    key={frameIndex}
+                    className={frameIndex === currentFrameIndex ? 'active' : ''}
+                    onClick={() => handleReviewFrameIndex(frameIndex)}
+                  >
+                    {frameIndex + 1}
+                  </button>
+                ))}
+                {qualityIssueFrameIndexes.length > 12 ? (
+                  <span className="issue-frame-more">+{qualityIssueFrameIndexes.length - 12}</span>
+                ) : null}
+              </div>
+            ) : null}
             <div className="playback-controls">
               <button onClick={handleTogglePlayback} disabled={frameFiles.length === 0}>
                 {isPlaying ? '暂停' : '播放'}
@@ -2042,6 +2111,7 @@ function App(): JSX.Element {
             <div className="preview-tabs">
               <button
                 className={!activeComparePreset && activePreviewTab === 'original' ? 'active' : ''}
+                disabled={!hasOriginalPreview}
                 onClick={() => {
                   setActiveComparePreset(null)
                   setActivePreviewTab('original')
@@ -2052,22 +2122,24 @@ function App(): JSX.Element {
 
               <button
                 className={!activeComparePreset && activePreviewTab === 'raw' ? 'active' : ''}
+                disabled={!hasRawPreview}
                 onClick={() => {
                   setActiveComparePreset(null)
                   setActivePreviewTab('raw')
                 }}
               >
-                Raw
+                Raw{hasRawPreview ? '' : ' 未就绪'}
               </button>
 
               <button
                 className={!activeComparePreset && activePreviewTab === 'soft' ? 'active' : ''}
+                disabled={!hasSoftPreview}
                 onClick={() => {
                   setActiveComparePreset(null)
                   setActivePreviewTab('soft')
                 }}
               >
-                Soft
+                Soft{hasSoftPreview ? '' : ' 未就绪'}
               </button>
 
               <button
@@ -2078,7 +2150,7 @@ function App(): JSX.Element {
                   setActivePreviewTab('compare')
                 }}
               >
-                对比
+                对比{hasCompareImages ? '' : ' 未就绪'}
               </button>
 
               {COMPARE_PRESETS.map((comparePreset) => {
