@@ -220,6 +220,7 @@ public static class ScsShellNotify {
 
     $ie4uinit = Join-Path $env:WINDIR "System32\ie4uinit.exe"
     if (Test-Path -LiteralPath $ie4uinit) {
+        & $ie4uinit -ClearIconCache
         & $ie4uinit -show
     }
 }

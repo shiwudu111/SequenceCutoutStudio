@@ -24,6 +24,12 @@ contextBridge.exposeInMainWorld('cutoutAPI', {
     shrink?: number
   }) => ipcRenderer.invoke('cache:inspect-status', args),
 
+  analyzeQualityReport: (args: {
+    inputDir: string
+    rawDir?: string
+    softDir: string
+  }) => ipcRenderer.invoke('quality:analyze-sequence', args),
+
   extractVideoFrames: (args: {
     videoPath: string
     fps: number

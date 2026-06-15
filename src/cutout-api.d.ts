@@ -119,6 +119,35 @@ declare global {
         softMessage: string
     }
 
+    type QualityIssue = {
+        severity: 'warning' | 'error'
+        fileName?: string
+        reason: string
+        detail?: string
+        score?: number
+    }
+
+    type QualityReportResult = {
+        ok: boolean
+        checkedAt: string
+        inputDir: string
+        rawDir: string
+        softDir: string
+        inputCount: number
+        rawCount: number
+        softCount: number
+        checkedFrameCount: number
+        width: number
+        height: number
+        averageAlphaCoverage: number
+        maxAlphaJump: number
+        maxLocalAlphaDelta: number
+        maxRawSoftShrink: number
+        issueCount: number
+        issues: QualityIssue[]
+        message: string
+    }
+
     type ExportTransparentPngSequenceArgs = {
         sourceDir: string
         targetRootDir: string
@@ -258,6 +287,7 @@ declare global {
             resolveDroppedPath: (filePath: string) => Promise<ResolveDroppedPathResult>
             scanFrameFolder: (folderPath: string) => Promise<FrameFolderScanResult>
             inspectCacheStatus: (args: { inputDir: string; preset: CutoutPreset; alphaLow?: number; shrink?: number }) => Promise<CacheStatusResult>
+            analyzeQualityReport: (args: { inputDir: string; rawDir?: string; softDir: string }) => Promise<QualityReportResult>
             extractVideoFrames: (args: ExtractVideoFramesArgs) => Promise<ExtractVideoFramesResult>
             runSingleCutout: (args: RunSingleCutoutArgs) => Promise<SingleCutoutResult>
             runBatchCutout: (args: RunBatchCutoutArgs) => Promise<BatchCutoutResult>

@@ -48,6 +48,21 @@ type BatchTask = {
 }
 
 type BatchProgressStage = 'prepare' | 'rembg' | 'postprocess' | 'done' | 'error'
+type WorkflowStepId = 'input' | 'frames' | 'cutout' | 'edge' | 'export'
+
+type WorkflowStep = {
+  id: WorkflowStepId
+  label: string
+  target: 'input' | 'videoTools' | 'process' | 'edgeControls' | 'preview'
+}
+
+const WORKFLOW_STEPS: WorkflowStep[] = [
+  { id: 'input', label: '1. 导入素材', target: 'input' },
+  { id: 'frames', label: '2. 视频切帧', target: 'videoTools' },
+  { id: 'cutout', label: '3. AI 抠图', target: 'process' },
+  { id: 'edge', label: '4. 边缘处理', target: 'edgeControls' },
+  { id: 'export', label: '5. 预览导出', target: 'preview' }
+]
 
 const EDGE_PRESET_PARAMS: Record<Exclude<Preset, 'Custom'>, EdgePresetParams> = {
   C: {
@@ -121,6 +136,7 @@ function App(): JSX.Element {
   })
   const [isProcessing, setIsProcessing] = useState(false)
   const [batchTask, setBatchTask] = useState<BatchTask | null>(null)
+  const [qualityReport, setQualityReport] = useState<QualityReportResult | null>(null)
   const [isTestingSingle, setIsTestingSingle] = useState(false)
   const [isComparing, setIsComparing] = useState(false)
   const [isExporting, setIsExporting] = useState(false)
@@ -139,9 +155,15 @@ function App(): JSX.Element {
   const [lightboxOffset, setLightboxOffset] = useState({ x: 0, y: 0 })
   const [isDraggingLightbox, setIsDraggingLightbox] = useState(false)
   const [lightboxDragStart, setLightboxDragStart] = useState({ x: 0, y: 0 })
+  const [activeWorkflowStep, setActiveWorkflowStep] = useState<WorkflowStepId>('input')
   const previewCacheRef = useRef<Map<string, string>>(new Map())
   const lightboxImageRef = useRef<HTMLImageElement | null>(null)
   const logsRef = useRef<HTMLDivElement | null>(null)
+  const inputPanelRef = useRef<HTMLElement | null>(null)
+  const videoToolsRef = useRef<HTMLDivElement | null>(null)
+  const processPanelRef = useRef<HTMLElement | null>(null)
+  const edgeControlsRef = useRef<HTMLDivElement | null>(null)
+  const previewPanelRef = useRef<HTMLElement | null>(null)
   const [logs, setLogs] = useState<string[]>([
     'Sequence Cutout Studio 已启动。',
     '当前阶段：Phase 6B - 固定 UI 布局与功能承载边界。'
@@ -151,11 +173,71 @@ function App(): JSX.Element {
     setLogs((prev) => [...prev, line])
   }
 
+  const refreshQualityReport = async (nextRawFolder = rawFolder, nextSoftFolder = softFolder): Promise<void> => {
+    if (!selectedFolder || !nextSoftFolder) {
+      setQualityReport(null)
+      return
+    }
+
+    const report = await window.cutoutAPI.analyzeQualityReport({
+      inputDir: selectedFolder,
+      rawDir: nextRawFolder,
+      softDir: nextSoftFolder
+    })
+
+    setQualityReport(report)
+    appendLog(`质量验收：${report.message}`)
+  }
+
   useEffect(() => {
     if (logsRef.current) {
       logsRef.current.scrollTop = logsRef.current.scrollHeight
     }
   }, [logs])
+
+  const handleWorkflowStepClick = (step: WorkflowStep): void => {
+    setActiveWorkflowStep(step.id)
+
+    const targetMap: Record<WorkflowStep['target'], HTMLElement | null> = {
+      input: inputPanelRef.current,
+      videoTools: videoToolsRef.current,
+      process: processPanelRef.current,
+      edgeControls: edgeControlsRef.current,
+      preview: previewPanelRef.current
+    }
+
+    targetMap[step.target]?.scrollIntoView({
+      behavior: 'smooth',
+      block: 'start',
+      inline: 'nearest'
+    })
+  }
+
+  const focusPreviewPanel = (): void => {
+    setActiveWorkflowStep('export')
+
+    window.setTimeout(() => {
+      previewPanelRef.current?.scrollIntoView({
+        behavior: 'smooth',
+        block: 'start',
+        inline: 'nearest'
+      })
+    }, 0)
+  }
+
+  const handleQualityIssueClick = (issue: QualityIssue): void => {
+    if (!issue.fileName) {
+      return
+    }
+
+    const targetIndex = frameFiles.findIndex((fileName) => fileName === issue.fileName)
+    if (targetIndex < 0) {
+      return
+    }
+
+    void loadFrameByIndex(targetIndex)
+    focusPreviewPanel()
+  }
 
   const getBatchTaskTitle = (task: BatchTask): string => {
     if (task.mode === 'edge') {
@@ -1177,6 +1259,7 @@ function App(): JSX.Element {
       appendLog(`Raw 目录：${result.rawDir}`)
       appendLog(`输出目录：${result.outputDir}`)
       await inspectCacheStatus(selectedFolder, preset, true)
+      await refreshQualityReport(result.rawDir, result.outputDir)
 
       if (frameFiles.length > 0) {
         await loadFrameByIndex(currentFrameIndex, frameFiles, selectedFolder, result.rawDir, result.outputDir)
@@ -1309,12 +1392,16 @@ function App(): JSX.Element {
           </div>
         </div>
 
-        <nav className="steps">
-          <button className="step active">1. 导入素材</button>
-          <button className="step">2. 视频切帧</button>
-          <button className="step">3. AI 抠图</button>
-          <button className="step">4. 边缘处理</button>
-          <button className="step">5. 预览导出</button>
+        <nav className="steps" aria-label="主流程导航">
+          {WORKFLOW_STEPS.map((step) => (
+            <button
+              key={step.id}
+              className={activeWorkflowStep === step.id ? 'step active' : 'step'}
+              onClick={() => handleWorkflowStepClick(step)}
+            >
+              {step.label}
+            </button>
+          ))}
         </nav>
 
         <div className="phase-card">
@@ -1414,7 +1501,14 @@ function App(): JSX.Element {
         </header>
 
         <div className="content-grid">
-          <section className="panel controls-panel input-panel">
+          <section
+            ref={inputPanelRef}
+            className={
+              activeWorkflowStep === 'input'
+                ? 'panel controls-panel input-panel workflow-target'
+                : 'panel controls-panel input-panel'
+            }
+          >
             <div className="panel-header">
               <h3>输入素材</h3>
               <span>Input</span>
@@ -1440,47 +1534,59 @@ function App(): JSX.Element {
               <p>支持 MP4 / MOV / WEBM / MKV，也支持直接拖入 PNG 序列帧目录或其中一张 PNG。</p>
             </div>
 
-            <div className="video-tools">
+            <div
+              ref={videoToolsRef}
+              className={activeWorkflowStep === 'frames' ? 'video-tools workflow-target' : 'video-tools'}
+            >
               <div className="video-tool-title">视频切帧</div>
 
-              <label className="field">
-                <span>FPS</span>
-                <input
-                  type="number"
-                  min="1"
-                  value={videoFps}
-                  onChange={(event) => setVideoFps(Number(event.target.value))}
-                />
-              </label>
+              <div className="video-field-grid">
+                <label className="field">
+                  <span>FPS</span>
+                  <input
+                    type="number"
+                    min="1"
+                    value={videoFps}
+                    onChange={(event) => setVideoFps(Number(event.target.value))}
+                  />
+                </label>
 
-              <label className="field">
-                <span>时长秒数，0 表示全长</span>
-                <input
-                  type="number"
-                  min="0"
-                  value={videoDuration}
-                  onChange={(event) => setVideoDuration(Number(event.target.value))}
-                />
-              </label>
+                <label className="field">
+                  <span>时长秒数，0 表示全长</span>
+                  <input
+                    type="number"
+                    min="0"
+                    value={videoDuration}
+                    onChange={(event) => setVideoDuration(Number(event.target.value))}
+                  />
+                </label>
 
-              <label className="field">
-                <span>输出前缀</span>
-                <input
-                  type="text"
-                  value={videoOutputPrefix}
-                  onChange={(event) => setVideoOutputPrefix(event.target.value)}
-                />
-              </label>
+                <label className="field">
+                  <span>输出前缀</span>
+                  <input
+                    type="text"
+                    value={videoOutputPrefix}
+                    onChange={(event) => setVideoOutputPrefix(event.target.value)}
+                  />
+                </label>
+              </div>
 
               <button className="secondary-button" onClick={handleExtractFrames} disabled={!selectedVideo}>
                 切成序列帧
               </button>
 
-              <button className="secondary-button" onClick={handleOpenCurrentFrameFolder} disabled={!selectedFolder}>
+              <button
+                className="secondary-button folder-button"
+                onClick={handleOpenCurrentFrameFolder}
+                disabled={!selectedFolder}
+                title="打开序列帧目录"
+              >
                 打开序列帧目录
               </button>
             </div>
 
+            <input className="input-info-toggle" id="input-info-toggle" type="checkbox" />
+            <label className="input-info-more" htmlFor="input-info-toggle">...</label>
             <div className="info-list">
               <div>
                 <span>路径</span>
@@ -1517,7 +1623,14 @@ function App(): JSX.Element {
             </div>
           </section>
 
-          <section className="panel controls-panel process-panel">
+          <section
+            ref={processPanelRef}
+            className={
+              activeWorkflowStep === 'cutout'
+                ? 'panel controls-panel process-panel workflow-target'
+                : 'panel controls-panel process-panel'
+            }
+          >
             <div className="panel-header">
               <h3>处理参数</h3>
               <span>Process</span>
@@ -1536,26 +1649,31 @@ function App(): JSX.Element {
               ))}
             </div>
 
-            <label className="field">
-              <span>边缘阈值</span>
-              <input
-                type="number"
-                value={alphaLow}
-                disabled={preset !== 'Custom'}
-                onChange={(event) => setAlphaLow(Number(event.target.value))}
-              />
-            </label>
+            <div
+              ref={edgeControlsRef}
+              className={activeWorkflowStep === 'edge' ? 'edge-control-grid workflow-target' : 'edge-control-grid'}
+            >
+              <label className="field">
+                <span>边缘阈值</span>
+                <input
+                  type="number"
+                  value={alphaLow}
+                  disabled={preset !== 'Custom'}
+                  onChange={(event) => setAlphaLow(Number(event.target.value))}
+                />
+              </label>
 
-            <label className="field">
-              <span>收边力度</span>
-              <input
-                type="number"
-                step="0.01"
-                value={shrink}
-                disabled={preset !== 'Custom'}
-                onChange={(event) => setShrink(Number(event.target.value))}
-              />
-            </label>
+              <label className="field">
+                <span>收边力度</span>
+                <input
+                  type="number"
+                  step="0.01"
+                  value={shrink}
+                  disabled={preset !== 'Custom'}
+                  onChange={(event) => setShrink(Number(event.target.value))}
+                />
+              </label>
+            </div>
 
             <div className="button-row">
               <button
@@ -1675,24 +1793,46 @@ function App(): JSX.Element {
             <div className="quality-summary">
               <div>
                 <span>当前状态</span>
-                <strong>{batchTask ? batchTask.currentStage : '等待批处理结果'}</strong>
+                <strong>{qualityReport ? qualityReport.message : batchTask ? batchTask.currentStage : '等待批处理结果'}</strong>
               </div>
               <div>
                 <span>输出帧数</span>
-                <strong>{batchTask ? `${batchTask.outputCount} / ${batchTask.totalCount}` : '-'}</strong>
+                <strong>{qualityReport ? `${qualityReport.softCount} / ${qualityReport.inputCount}` : batchTask ? `${batchTask.outputCount} / ${batchTask.totalCount}` : '-'}</strong>
               </div>
               <div>
                 <span>问题帧检测</span>
-                <strong>Phase 6C 接入</strong>
+                <strong>{qualityReport ? `${qualityReport.issueCount} 个疑似问题` : 'Phase 6C 接入'}</strong>
               </div>
             </div>
+
+            {qualityReport?.issues.length ? (
+              <div className="quality-issues">
+                {qualityReport.issues.slice(0, 3).map((issue, index) => (
+                  <button
+                    key={`${issue.fileName ?? issue.reason}-${index}`}
+                    className={`quality-issue ${issue.severity}`}
+                    onClick={() => handleQualityIssueClick(issue)}
+                  >
+                    <strong>{issue.fileName ?? issue.reason}</strong>
+                    <span>{issue.fileName ? issue.reason : issue.detail ?? issue.reason}</span>
+                  </button>
+                ))}
+              </div>
+            ) : null}
 
             <div className="panel-note">
               后续数量一致性、alpha 波动、疑似闪烁帧和问题帧跳转统一进入本面板。
             </div>
           </section>
 
-          <section className="panel preview-panel">
+          <section
+            ref={previewPanelRef}
+            className={
+              activeWorkflowStep === 'export'
+                ? 'panel preview-panel workflow-target'
+                : 'panel preview-panel'
+            }
+          >
             <div className="panel-header">
               <h3>预览检查：{displayPreviewTitle}</h3>
               <div className="segmented">
@@ -1852,9 +1992,7 @@ function App(): JSX.Element {
                       {frameIndex + 1}
                     </button>
                   ))
-                ) : (
-                  <span>选择视频或序列帧后可拖动游标快速定位帧</span>
-                )}
+                ) : null}
               </div>
             </div>
 

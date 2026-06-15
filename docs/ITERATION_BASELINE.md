@@ -2,7 +2,7 @@
 
 版本定位：第一版内测绿色包已通过，进入发布流程固化与下一轮功能开发准备
 
-当前阶段：Phase 6B 固定 UI 布局与功能承载边界已完成，下一步进入 Phase 6C 序列质量验收与问题帧检测
+当前阶段：Phase 6C 序列质量验收与问题帧检测开发与打包验证完成，待绿色包 GUI 复核；下一步准备 Phase 6D Raw / Soft 预览验收视图强化
 
 基线日期：2026-05-28
 
@@ -138,7 +138,7 @@ Phase 4F：处理效果增强                     已完成
 Phase 5：正式发布包装                      已完成
 Phase 6A：去背景质量评估                    已完成
 Phase 6B：固定 UI 布局与功能承载边界          已完成
-Phase 6C：序列质量验收与问题帧检测             待开始
+Phase 6C：序列质量验收与问题帧检测             待 GUI 复核
 ```
 
 ---
@@ -203,7 +203,7 @@ Phase 6C：序列质量验收与问题帧检测             待开始
 [x] 128px 以下小尺寸在生成时做锐化处理，保证 Explorer 常用的 48 / 64 / 96 显示清晰
 [x] launcher 构建后必须同时替换 MAINICON 和 32512 两个 icon group
 [x] build-internal.ps1 必须验证最终 exe 可提取 48 / 64 / 256 图标
-[x] 构建后刷新 shell icon cache；如资源管理器仍显示旧图，重启 Explorer
+[x] 构建后刷新 shell icon cache，并执行 ie4uinit.exe -ClearIconCache / -show；如资源管理器仍显示旧图，重启 Explorer
 ```
 
 ---
@@ -1006,6 +1006,17 @@ UI 后续不新增主流程窗口；新增功能只进入对应面板。
 [x] CSS 从 nth-child 布局归属改为显式 input-panel / process-panel / export-panel / quality-panel / preview-panel / log-panel
 [x] 明确后续 Sprite Sheet、TexturePacker JSON、Cocos plist 只进入导出设置高级区
 [x] 明确后续问题帧、序列稳定性和验收报告只进入质量验收面板
+[x] 根据人工验收反馈，将左侧 1-5 步骤改为真实流程导航
+[x] 点击流程导航后自动滚动到对应区域，并显示蓝色高亮
+[x] 宽屏三栏改为：左栏输入，中栏处理 / 导出 / 质量验收，右栏预览 / 日志
+[x] 双栏布局改为预览优先，日志在右栏预览下方露出明确面积
+[x] 单栏布局改为输入、预览、处理、导出、质量验收、日志
+[x] 日志保留完整日志流，并在第一屏露出明确可读面积
+[x] 压缩输入区、切帧区和处理参数区的纵向空间
+[x] 固定三栏断点：宽度 1336px 及以上保持三栏，1335px 及以下才允许进入双栏
+[x] 三栏状态人工验收冻结：后续二栏 / 单栏优化不得改动三栏断点、面板顺序、预览区高度策略
+[x] 二栏状态人工验收冻结：右栏保持预览检查在上、处理参数紧接其下；左栏输入素材保持三栏输入方案
+[x] 单栏状态人工验收冻结：顺序为输入、预览、处理、导出、质量验收、日志；预览采用 4:3，更克制地使用纵向空间
 ```
 
 本阶段边界：
@@ -1022,17 +1033,17 @@ UI 后续不新增主流程窗口；新增功能只进入对应面板。
 验证命令：
 
 ```text
-.\node_modules\.bin\tsc.cmd --noEmit 通过。
-npm.cmd run build 通过。
+[x] .\node_modules\.bin\tsc.cmd --noEmit 通过。
+[x] npm.cmd run build 通过。
 ```
 
 验证说明：
 
 ```text
-尝试使用本地 Vite / Electron 离屏截图检查 1366x768、1600x900、1920x1080 布局。
-当前环境 Electron 离屏加载返回 ERR_FAILED，截图验证未完成。
-该问题发生在验证工具层，不是 tsc / npm build 错误。
-后续如需视觉确认，可用正式 Electron 或绿色包 GUI 手工检查三种分辨率。
+旧版 Phase 6B 已经由 GUI 人工验收判定为不能收口。
+主要问题：预览优先级不足、中栏空间浪费、日志被压缩、左侧 1-5 步骤像按钮但没有真实功能。
+本次修正后，三栏、二栏、单栏状态均已按人工反馈冻结；剩余视觉小问题不再继续打磨。
+后续功能扩展不得回改三栏 / 二栏 / 单栏布局承载边界。
 ```
 
 稳定链路影响：
@@ -1045,7 +1056,7 @@ npm.cmd run build 通过。
 不影响导出后端逻辑。
 ```
 
-下个阶段唯一主目标：Phase 6C 序列质量验收与问题帧检测。
+下个阶段唯一主目标：Phase 6D Raw / Soft 预览验收视图强化。
 
 ---
 
@@ -1125,6 +1136,32 @@ python -m rembg
 .\release\SequenceCutoutStudio-Internal\app\resources\portable-root\tools\python\python.exe -c "import rembg; print('rembg ok')"
 .\release\SequenceCutoutStudio-Internal\app\resources\portable-root\tools\python\python.exe -c "import onnxruntime; print('onnxruntime ok')"
 .\release\SequenceCutoutStudio-Internal\app\resources\portable-root\tools\python\python.exe -c "import PIL, numpy; print('postprocess deps ok')"
+```
+
+---
+
+## 5.1 Phase 6C 当前修正记录
+
+2026-06-15 修正质量验收最低标准：
+
+```text
+问题：E:\cuts\test\10发光法术_12fps_4s_soft_I 第 25-30 帧存在局部身体区域被当作背景抠掉，但初版质量验收只看全局 alpha 覆盖和相邻帧总面积波动，结果误判为“质量验收通过”。
+
+结论：只看 alphaCoverage / maxAlphaJump 不满足最低验收标准。
+
+修正：质量验收增加 8x8 局部 alpha 分布检测，记录 maxLocalAlphaDelta；只要发现局部主体缺失风险或局部 alpha 突变，就标记为疑似问题帧，报告不再显示为通过。
+
+追加修正：有 Raw 输出时，优先做同一帧 Raw → Soft 局部收缩检测，记录 maxRawSoftShrink；相对首帧检测只作为缺少 Raw 时的兜底，避免快速运动素材因为主体真实位移被大量误报。
+
+样本校准：04 简单背景 0 个疑似问题；10 发光法术不再误判通过，严重帧排序覆盖 sample_0024 - sample_0031 区间；13 快速运动能标出疑似闪烁 / 局部收缩帧。
+
+界面边界：质量验收主界面只展示“有没有问题、输出帧数、疑似问题数量、问题帧入口”；alpha 覆盖、局部变化、Raw 收缩等技术指标只保留在内部报告和后续详情，不占主流程界面。
+
+验证：tsc 通过；npm build 通过；build-internal.ps1 通过；portable Python import rembg / onnxruntime / PIL + numpy 通过；zip 大小 552.75 MB。最新打包时间：2026-06-15 11:47。
+
+待复核：绿色包 GUI 中用 10发光法术跑批处理，确认点击疑似问题帧能切到对应帧并滚动到预览检查面板。
+
+边界：该检测用于最低验收和人工复核提示，不承诺自动判断所有复杂运动是否真实错误；后续若误报过多，再在 Phase 6D / 6E 单独优化。
 ```
 
 ---

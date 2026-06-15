@@ -12,7 +12,7 @@
 
 body {
   margin: 0;
-  min-width: 920px;
+  min-width: 860px;
   min-height: 640px;
   background: #eef2f7;
 }
@@ -28,7 +28,7 @@ button {
 
 .app-shell {
   display: grid;
-  grid-template-columns: 280px 1fr;
+  grid-template-columns: 240px 1fr;
   min-height: 100vh;
   background:
     radial-gradient(circle at top left, rgba(104, 129, 255, 0.18), transparent 32%),
@@ -38,8 +38,8 @@ button {
 .sidebar {
   display: flex;
   flex-direction: column;
-  gap: 18px;
-  padding: 28px 22px;
+  gap: 16px;
+  padding: 24px 16px;
   background: rgba(255, 255, 255, 0.82);
   border-right: 1px solid rgba(125, 139, 160, 0.2);
   backdrop-filter: blur(18px);
@@ -81,17 +81,22 @@ button {
 }
 
 .step {
-  border: 0;
+  border: 1px solid transparent;
   border-radius: 14px;
   padding: 11px 14px;
   text-align: left;
   color: #5f6d81;
   background: transparent;
+  transition:
+    border-color 160ms ease,
+    background 160ms ease,
+    color 160ms ease;
 }
 
 .step.active {
   color: #29364a;
   background: #eef2ff;
+  border-color: #536dfe;
   font-weight: 700;
 }
 
@@ -252,7 +257,7 @@ button {
 }
 
 .workspace {
-  padding: 28px;
+  padding: 16px;
   overflow: auto;
 }
 
@@ -290,12 +295,13 @@ button {
 }
 
 .panel {
-  min-height: 220px;
-  border-radius: 24px;
-  padding: 20px;
+  min-height: 0;
+  border-radius: 20px;
+  padding: 18px;
   background: rgba(255, 255, 255, 0.9);
   border: 1px solid rgba(213, 221, 232, 0.95);
   box-shadow: 0 18px 45px rgba(76, 91, 124, 0.08);
+  scroll-margin-top: 18px;
 }
 
 .panel-header {
@@ -343,9 +349,9 @@ button {
 }
 
 .drop-zone {
-  margin-top: 16px;
-  padding: 24px;
-  border-radius: 20px;
+  margin-top: 14px;
+  padding: 16px;
+  border-radius: 16px;
   border: 2px dashed #c9d3e2;
   background: #f8fafc;
   text-align: center;
@@ -359,15 +365,16 @@ button {
 
 .info-list {
   display: grid;
-  gap: 10px;
-  margin-top: 16px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+  margin-top: 12px;
 }
 
 .info-list div {
   display: grid;
   grid-template-columns: 64px 1fr;
   gap: 12px;
-  padding: 10px 12px;
+  padding: 8px 10px;
   border-radius: 13px;
   background: #f7f9fc;
 }
@@ -383,10 +390,15 @@ button {
   white-space: nowrap;
 }
 
+.input-info-toggle,
+.input-info-more {
+  display: none;
+}
+
 .preset-row {
   display: grid;
-  grid-template-columns: repeat(4, minmax(60px, 1fr));
-  gap: 10px;
+  grid-template-columns: repeat(auto-fit, minmax(70px, 1fr));
+  gap: 8px;
   margin-bottom: 16px;
 }
 
@@ -422,7 +434,7 @@ button {
 .field {
   display: grid;
   gap: 7px;
-  margin-bottom: 14px;
+  margin-bottom: 10px;
 }
 
 .field span {
@@ -447,7 +459,7 @@ button {
 
 .export-naming-row {
   display: grid;
-  grid-template-columns: minmax(160px, 1fr) minmax(96px, 0.55fr) minmax(96px, 0.55fr);
+  grid-template-columns: repeat(auto-fit, minmax(96px, 1fr));
   gap: 10px;
 }
 
@@ -466,7 +478,7 @@ button {
 
 .segmented button {
   border: 0;
-  padding: 8px 12px;
+  padding: 7px 10px;
   color: #68778c;
   background: transparent;
   white-space: nowrap;
@@ -535,16 +547,20 @@ button {
 .preview-tabs {
   display: flex;
   flex-wrap: wrap;
-  gap: 8px;
-  margin-top: 14px;
+  gap: 6px;
+  margin-top: 8px;
+  overflow: visible;
 }
 
 .preview-tabs button {
   border: 0;
-  border-radius: 12px;
-  padding: 9px 14px;
+  min-width: 62px;
+  flex: 1 1 62px;
+  border-radius: 10px;
+  padding: 8px 8px;
   color: #657489;
   background: #eef2f7;
+  white-space: nowrap;
 }
 
 .preview-tabs button.active {
@@ -559,7 +575,7 @@ button {
 .logs {
   display: grid;
   gap: 8px;
-  max-height: 280px;
+  max-height: 520px;
   overflow: auto;
   padding: 14px;
   border-radius: 16px;
@@ -590,7 +606,7 @@ button {
 }
 
 .preview-hint {
-  margin-top: 8px;
+  margin-top: 6px;
   color: #6c788a;
   font-size: 12px;
 }
@@ -677,12 +693,13 @@ button:disabled {
 
 .video-tools {
   display: grid;
-  gap: 12px;
-  margin-top: 16px;
-  padding: 16px;
-  border-radius: 18px;
+  gap: 10px;
+  margin-top: 14px;
+  padding: 14px;
+  border-radius: 16px;
   background: #f8fafc;
   border: 1px solid #e1e8f2;
+  scroll-margin-top: 18px;
 }
 
 .video-tool-title {
@@ -702,11 +719,11 @@ button:disabled {
   display: grid;
   grid-template-areas:
     "input process preview"
-    "export quality preview"
-    "logs logs logs";
-  grid-template-columns: minmax(300px, 0.85fr) minmax(320px, 0.95fr) minmax(500px, 1.45fr);
-  grid-template-rows: auto auto minmax(220px, auto);
-  gap: 18px;
+    "input export preview"
+    "input quality logs";
+  grid-template-columns: minmax(280px, 0.78fr) minmax(280px, 0.82fr) minmax(500px, 1.4fr);
+  grid-template-rows: auto auto minmax(280px, auto);
+  gap: 14px;
   align-items: start;
 }
 
@@ -716,22 +733,22 @@ button:disabled {
 
 .input-panel {
   grid-area: input;
-  overflow: auto;
+  overflow: visible;
 }
 
 .process-panel {
   grid-area: process;
-  overflow: auto;
+  overflow: visible;
 }
 
 .export-panel {
   grid-area: export;
-  overflow: auto;
+  overflow: visible;
 }
 
 .quality-panel {
   grid-area: quality;
-  overflow: auto;
+  overflow: visible;
 }
 
 .preview-panel {
@@ -744,13 +761,14 @@ button:disabled {
 
 .preview-panel .panel-header {
   flex: 0 0 auto;
+  margin-bottom: 12px;
 }
 
 .preview-stage {
   flex: 0 0 auto;
   width: 100%;
   height: auto;
-  min-height: 280px;
+  min-height: 360px;
   aspect-ratio: 16 / 9;
 }
 
@@ -771,9 +789,63 @@ button:disabled {
 
 .logs {
   flex: 1;
-  max-height: 240px;
-  min-height: 160px;
+  max-height: 520px;
+  min-height: 260px;
   overflow: auto;
+}
+
+.video-field-grid,
+.edge-control-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.edge-control-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  scroll-margin-top: 18px;
+}
+
+.workflow-target {
+  border-color: #536dfe;
+  box-shadow:
+    0 0 0 3px rgba(83, 109, 254, 0.14),
+    0 18px 45px rgba(76, 91, 124, 0.08);
+}
+
+.edge-control-grid.workflow-target {
+  padding: 10px;
+  border: 1px solid #536dfe;
+  border-radius: 14px;
+  background: #f8faff;
+}
+
+/* Wide three-column mode keeps the input panel close to the original vertical workflow. */
+.input-panel .drop-zone {
+  margin-top: 16px;
+  padding: 24px;
+  border-radius: 20px;
+}
+
+.input-panel .video-tools {
+  gap: 12px;
+  margin-top: 16px;
+  padding: 16px;
+  border-radius: 18px;
+}
+
+.input-panel .video-field-grid,
+.input-panel .info-list {
+  grid-template-columns: 1fr;
+}
+
+.input-panel .info-list {
+  gap: 10px;
+  margin-top: 16px;
+}
+
+.input-panel .info-list div {
+  padding: 10px 12px;
 }
 
 .panel-note {
@@ -814,18 +886,46 @@ button:disabled {
   white-space: nowrap;
 }
 
-/* 压缩输入区，让内容更像工具面板 */
-.drop-zone {
-  padding: 18px;
+.quality-issues {
+  display: grid;
+  gap: 8px;
+  margin-top: 10px;
 }
 
-.video-tools {
+.quality-issue {
+  display: grid;
+  grid-template-columns: minmax(120px, 0.8fr) minmax(0, 1fr);
   gap: 10px;
-  padding: 14px;
+  align-items: center;
+  width: 100%;
+  border: 1px solid #dbe3ef;
+  border-radius: 12px;
+  padding: 9px 10px;
+  color: #334158;
+  background: #f8fafc;
+  text-align: left;
 }
 
-.field {
-  margin-bottom: 10px;
+.quality-issue.warning {
+  border-color: #f6d58f;
+  background: #fffbeb;
+}
+
+.quality-issue.error {
+  border-color: #f4b4b4;
+  background: #fff1f1;
+}
+
+.quality-issue strong,
+.quality-issue span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.quality-issue span {
+  color: #6b778a;
+  font-size: 12px;
 }
 
 /* 让处理中按钮组在中栏里更舒服 */
@@ -856,14 +956,14 @@ button:disabled {
   grid-template-columns: auto auto minmax(140px, 1fr) auto auto;
   gap: 8px;
   align-items: center;
-  margin-top: 12px;
+  margin-top: 8px;
 }
 
 .frame-controls button,
 .key-frame-row button {
   border: 0;
   border-radius: 11px;
-  padding: 8px 11px;
+  padding: 7px 10px;
   color: #4c5b70;
   background: #eef2f7;
   font-weight: 700;
@@ -876,7 +976,7 @@ button:disabled {
 
 .frame-indicator {
   overflow: hidden;
-  padding: 8px 12px;
+  padding: 7px 10px;
   border-radius: 11px;
   color: #334158;
   background: #f8fafc;
@@ -891,11 +991,11 @@ button:disabled {
 .key-frame-row {
   display: flex;
   flex-wrap: wrap;
-  gap: 8px;
+  gap: 6px;
   align-items: center;
-  margin-top: 10px;
+  margin-top: 8px;
   color: #64748b;
-  font-size: 13px;
+  font-size: 12px;
 }
 
 .key-frame-row > span:first-child {
@@ -904,7 +1004,7 @@ button:disabled {
 }
 
 .key-frame-indexes {
-  padding: 6px 10px;
+  padding: 5px 8px;
   border-radius: 999px;
   color: #5b6778;
   background: #f8fafc;
@@ -915,13 +1015,13 @@ button:disabled {
   grid-template-columns: auto minmax(120px, 150px) minmax(160px, 1fr);
   gap: 8px;
   align-items: center;
-  margin-top: 10px;
+  margin-top: 8px;
 }
 
 .playback-controls button {
   border: 0;
   border-radius: 11px;
-  padding: 8px 14px;
+  padding: 7px 12px;
   color: #ffffff;
   background: #5166f0;
   font-weight: 800;
@@ -933,7 +1033,7 @@ button:disabled {
 
 .playback-fps {
   display: grid;
-  gap: 4px;
+  gap: 3px;
   color: #64748b;
   font-size: 12px;
   font-weight: 700;
@@ -944,7 +1044,7 @@ button:disabled {
   box-sizing: border-box;
   border: 1px solid #dbe3ef;
   border-radius: 10px;
-  padding: 7px 9px;
+  padding: 6px 8px;
   background: #ffffff;
   color: #334158;
   font-weight: 700;
@@ -952,7 +1052,7 @@ button:disabled {
 
 .playback-status {
   overflow: hidden;
-  padding: 8px 12px;
+  padding: 7px 10px;
   border-radius: 11px;
   color: #334158;
   background: #f8fafc;
@@ -964,10 +1064,10 @@ button:disabled {
 }
 
 .frame-ruler {
-  margin-top: 10px;
-  padding: 10px;
+  margin-top: 8px;
+  padding: 7px 9px;
   border: 1px solid #dbe3ef;
-  border-radius: 16px;
+  border-radius: 13px;
   background: #f8fafc;
 }
 
@@ -976,7 +1076,7 @@ button:disabled {
   align-items: center;
   justify-content: space-between;
   gap: 12px;
-  margin-bottom: 8px;
+  margin-bottom: 4px;
 }
 
 .frame-ruler-header strong {
@@ -995,6 +1095,7 @@ button:disabled {
 .frame-ruler-input {
   width: 100%;
   accent-color: #536dfe;
+  height: 16px;
 }
 
 .frame-ruler-ticks {
@@ -1002,14 +1103,15 @@ button:disabled {
   align-items: center;
   justify-content: space-between;
   gap: 6px;
-  margin-top: 4px;
+  margin-top: 2px;
+  min-height: 0;
 }
 
 .frame-ruler-ticks button {
   min-width: 34px;
   border: 1px solid transparent;
   border-radius: 999px;
-  padding: 5px 8px;
+  padding: 3px 6px;
   color: #64748b;
   background: #ffffff;
   font-size: 12px;
@@ -1023,7 +1125,7 @@ button:disabled {
 
 .frame-ruler-ticks span {
   color: #7b8798;
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 700;
 }
 
@@ -1079,7 +1181,8 @@ button:disabled {
   cursor: grabbing;
 }
 
-@media (max-width: 1680px) {
+/* Phase 6B freeze: 1336px and wider must remain in the approved three-column layout. */
+@media (max-width: 1335px) {
   .app-shell {
     grid-template-columns: 260px 1fr;
   }
@@ -1093,27 +1196,27 @@ button:disabled {
   }
 
   .content-grid {
+    /* Phase 6B freeze: two-column layout keeps preview above process in the right column. */
     grid-template-areas:
       "input preview"
-      "process preview"
-      "export quality"
-      "logs logs";
+      "input process"
+      "export logs"
+      "quality logs";
     grid-template-columns: minmax(320px, 0.9fr) minmax(440px, 1.1fr);
-    grid-template-rows: auto auto auto minmax(220px, auto);
-  }
-
-  .input-panel,
-  .process-panel,
-  .export-panel,
-  .quality-panel,
-  .preview-panel,
-  .log-panel {
-    grid-column: auto;
-    grid-row: auto;
+    grid-template-rows: auto auto auto minmax(260px, auto);
+    overflow: visible;
   }
 
   .log-panel {
-    min-height: 300px;
+    min-height: 320px;
+  }
+
+  .preview-stage {
+    min-height: clamp(320px, 32vh, 360px);
+  }
+
+  .preview-panel {
+    align-self: start;
   }
 }
 
@@ -1123,19 +1226,148 @@ button:disabled {
   }
 
   .workspace {
-    padding: 18px;
+    padding: 14px;
   }
 
   .content-grid {
     grid-template-areas:
       "input"
+      "preview"
       "process"
       "export"
-      "preview"
       "quality"
       "logs";
     grid-template-columns: minmax(0, 1fr);
     grid-template-rows: auto;
+    gap: 12px;
+  }
+
+  .topbar {
+    margin-bottom: 14px;
+  }
+
+  .topbar h2 {
+    font-size: 24px;
+  }
+
+  .topbar p {
+    margin-top: 5px;
+  }
+
+  .panel {
+    padding: 14px;
+    border-radius: 18px;
+  }
+
+  .panel-header {
+    margin-bottom: 12px;
+  }
+
+  .input-panel .drop-zone {
+    margin-top: 10px;
+    padding: 14px;
+    border-radius: 16px;
+  }
+
+  .input-panel .video-tools {
+    grid-template-columns: minmax(0, 1fr) 52px;
+    gap: 8px;
+    margin-top: 12px;
+    padding: 12px;
+    border-radius: 16px;
+  }
+
+  .input-panel .video-tool-title,
+  .input-panel .video-field-grid {
+    grid-column: 1 / -1;
+  }
+
+  .input-panel .video-field-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 8px;
+  }
+
+  .input-panel .video-tools .field {
+    margin-bottom: 0;
+  }
+
+  .input-panel .video-tools .field span {
+    min-height: 30px;
+    line-height: 1.25;
+  }
+
+  .input-panel .video-tools > .secondary-button {
+    min-height: 40px;
+  }
+
+  .input-panel .video-tools > .secondary-button:not(.folder-button) {
+    grid-column: 1;
+  }
+
+  .input-panel .video-tools > .folder-button {
+    grid-column: 2;
+    width: 52px;
+    min-height: 40px;
+    justify-self: end;
+    overflow: hidden;
+    padding: 0;
+    font-size: 0;
+  }
+
+  .input-panel .video-tools > .folder-button::before {
+    content: "\1F4C1";
+    font-size: 20px;
+  }
+
+  .info-list {
+    grid-template-columns: 1fr;
+    gap: 7px;
+    margin-top: 8px;
+  }
+
+  .video-field-grid,
+  .edge-control-grid,
+  .input-panel .info-list {
+    grid-template-columns: 1fr;
+  }
+
+  .input-panel .video-field-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .input-info-more {
+    display: grid;
+    place-items: center;
+    width: 64px;
+    height: 32px;
+    margin: 8px auto 0;
+    border: 1px solid #dbe3ef;
+    border-radius: 999px;
+    color: #536dfe;
+    background: #f8fafc;
+    font-weight: 900;
+    cursor: pointer;
+  }
+
+  .input-info-toggle:not(:checked) ~ .info-list div:nth-child(n + 3) {
+    display: none;
+  }
+
+  .input-info-toggle:checked + .input-info-more {
+    color: #ffffff;
+    background: #536dfe;
+    border-color: #536dfe;
+  }
+
+  .preview-stage {
+    min-height: clamp(280px, 28vh, 330px);
+    aspect-ratio: 4 / 3;
+  }
+
+  .preview-tabs,
+  .key-frame-row,
+  .playback-controls {
+    margin-top: 6px;
   }
 }
 
@@ -1152,11 +1384,11 @@ button:disabled {
     height: auto;
   }
 
-  .preview-stage {
+  .logs {
     min-height: 220px;
-    aspect-ratio: 16 / 9;
   }
 }
+
 .compare-panel {
   margin-top: 12px;
   padding: 12px;

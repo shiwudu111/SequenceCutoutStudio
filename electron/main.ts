@@ -1,4 +1,4 @@
-import { app, BrowserWindow, dialog, ipcMain, shell } from 'electron'
+import { app, BrowserWindow, dialog, ipcMain, nativeImage, shell } from 'electron'
 import { fileURLToPath } from 'node:url'
 import path from 'node:path'
 import fs from 'node:fs/promises'
@@ -158,6 +158,22 @@ type PngInfo = {
   width: number
   height: number
   hasAlpha: boolean
+}
+
+type AlphaFrameMetric = {
+  fileName: string
+  width: number
+  height: number
+  alphaCoverage: number
+  alphaGrid: number[]
+}
+
+type QualityIssue = {
+  severity: 'warning' | 'error'
+  fileName?: string
+  reason: string
+  detail?: string
+  score?: number
 }
 
 type RunCommandResult = {
@@ -384,6 +400,282 @@ async function sumPngFileBytes(folderPath: string): Promise<number> {
   )
 
   return sizes.reduce((total, size) => total + size, 0)
+}
+
+async function readAlphaFrameMetric(folderPath: string, fileName: string): Promise<AlphaFrameMetric> {
+  const filePath = path.join(folderPath, fileName)
+  const image = nativeImage.createFromPath(filePath)
+  const size = image.getSize()
+
+  if (image.isEmpty() || size.width <= 0 || size.height <= 0) {
+    throw new Error(`无法读取 PNG：${fileName}`)
+  }
+
+  const bitmap = image.toBitmap()
+  const pixelCount = size.width * size.height
+  const gridSize = 8
+  const gridAlphaPixels = Array.from({ length: gridSize * gridSize }, () => 0)
+  const gridPixels = Array.from({ length: gridSize * gridSize }, () => 0)
+  let alphaPixels = 0
+
+  for (let offset = 3; offset < bitmap.length; offset += 4) {
+    const pixelIndex = (offset - 3) / 4
+    const x = pixelIndex % size.width
+    const y = Math.floor(pixelIndex / size.width)
+    const gridX = Math.min(gridSize - 1, Math.floor((x * gridSize) / size.width))
+    const gridY = Math.min(gridSize - 1, Math.floor((y * gridSize) / size.height))
+    const gridIndex = gridY * gridSize + gridX
+    gridPixels[gridIndex] += 1
+
+    if (bitmap[offset] > 0) {
+      alphaPixels += 1
+      gridAlphaPixels[gridIndex] += 1
+    }
+  }
+
+  return {
+    fileName,
+    width: size.width,
+    height: size.height,
+    alphaCoverage: pixelCount > 0 ? alphaPixels / pixelCount : 0,
+    alphaGrid: gridAlphaPixels.map((count, index) =>
+      gridPixels[index] > 0 ? count / gridPixels[index] : 0
+    )
+  }
+}
+
+function diffAlphaGrid(current: number[], baseline: number[]) {
+  const length = Math.min(current.length, baseline.length)
+  let max = 0
+  let total = 0
+
+  for (let index = 0; index < length; index += 1) {
+    const delta = Math.abs(current[index] - baseline[index])
+    max = Math.max(max, delta)
+    total += delta
+  }
+
+  return {
+    max,
+    mean: length > 0 ? total / length : 0
+  }
+}
+
+function shrinkAlphaGrid(source: number[], target: number[]) {
+  const length = Math.min(source.length, target.length)
+  let max = 0
+  let total = 0
+
+  for (let index = 0; index < length; index += 1) {
+    const delta = Math.max(0, source[index] - target[index])
+    max = Math.max(max, delta)
+    total += delta
+  }
+
+  return {
+    max,
+    mean: length > 0 ? total / length : 0
+  }
+}
+
+async function analyzeQualityReport(args: { inputDir: string; rawDir?: string; softDir: string }) {
+  const inputDir = path.resolve(args.inputDir)
+  const rawDir = args.rawDir ? path.resolve(args.rawDir) : ''
+  const softDir = path.resolve(args.softDir)
+  const inputFiles = await listPngFileNames(inputDir)
+  const rawFiles = rawDir ? await listPngFileNames(rawDir) : []
+  const softFiles = await listPngFileNames(softDir)
+  const issues: QualityIssue[] = []
+
+  if (inputFiles.length === 0) {
+    issues.push({
+      severity: 'error',
+      reason: '输入序列为空',
+      detail: inputDir
+    })
+  }
+
+  if (softFiles.length === 0) {
+    issues.push({
+      severity: 'error',
+      reason: '没有找到 Soft 输出',
+      detail: softDir
+    })
+  }
+
+  if (inputFiles.length > 0 && softFiles.length !== inputFiles.length) {
+    issues.push({
+      severity: 'error',
+      reason: '输入帧和 Soft 输出数量不一致',
+      detail: `输入 ${inputFiles.length}，Soft ${softFiles.length}`
+    })
+  }
+
+  if (rawDir && rawFiles.length > 0 && rawFiles.length !== inputFiles.length) {
+    issues.push({
+      severity: 'warning',
+      reason: '输入帧和 Raw 输出数量不一致',
+      detail: `输入 ${inputFiles.length}，Raw ${rawFiles.length}`
+    })
+  }
+
+  const softMetrics: AlphaFrameMetric[] = []
+  const rawMetricByFileName = new Map<string, AlphaFrameMetric>()
+  const maxMetrics = Math.min(softFiles.length, 500)
+
+  if (rawDir && rawFiles.length > 0) {
+    for (const fileName of rawFiles.slice(0, maxMetrics)) {
+      try {
+        rawMetricByFileName.set(fileName, await readAlphaFrameMetric(rawDir, fileName))
+      } catch (error) {
+        issues.push({
+          severity: 'warning',
+          fileName,
+          reason: '读取 Raw alpha 统计失败',
+          detail: error instanceof Error ? error.message : String(error)
+        })
+      }
+    }
+  }
+
+  for (const fileName of softFiles.slice(0, maxMetrics)) {
+    try {
+      softMetrics.push(await readAlphaFrameMetric(softDir, fileName))
+    } catch (error) {
+      issues.push({
+        severity: 'warning',
+        fileName,
+        reason: '读取 alpha 统计失败',
+        detail: error instanceof Error ? error.message : String(error)
+      })
+    }
+  }
+
+  const firstMetric = softMetrics[0]
+  const sizeMismatch = softMetrics.find(
+    (metric) =>
+      firstMetric && (metric.width !== firstMetric.width || metric.height !== firstMetric.height)
+  )
+
+  if (sizeMismatch && firstMetric) {
+    issues.push({
+      severity: 'error',
+      fileName: sizeMismatch.fileName,
+      reason: '输出帧尺寸不一致',
+      detail: `基准 ${firstMetric.width}x${firstMetric.height}，当前 ${sizeMismatch.width}x${sizeMismatch.height}`
+    })
+  }
+
+  let maxAlphaJump = 0
+  let maxLocalAlphaDelta = 0
+  let maxRawSoftShrink = 0
+  const baselineMetric = softMetrics[0]
+
+  for (let index = 0; index < softMetrics.length; index += 1) {
+    const prev = softMetrics[index - 1]
+    const current = softMetrics[index]
+    const rawMetric = rawMetricByFileName.get(current.fileName)
+    const jump = prev ? Math.abs(current.alphaCoverage - prev.alphaCoverage) : 0
+    const adjacentLocalDelta = prev ? diffAlphaGrid(current.alphaGrid, prev.alphaGrid) : { max: 0, mean: 0 }
+    maxAlphaJump = Math.max(maxAlphaJump, jump)
+    maxLocalAlphaDelta = Math.max(maxLocalAlphaDelta, adjacentLocalDelta.max)
+
+    if (rawMetric && rawMetric.width === current.width && rawMetric.height === current.height) {
+      const rawSoftShrink = shrinkAlphaGrid(rawMetric.alphaGrid, current.alphaGrid)
+      const coverageShrink = Math.max(0, rawMetric.alphaCoverage - current.alphaCoverage)
+      maxRawSoftShrink = Math.max(maxRawSoftShrink, rawSoftShrink.max)
+
+      if (rawSoftShrink.max >= 0.28 && rawSoftShrink.mean >= 0.025) {
+        issues.push({
+          severity: 'warning',
+          fileName: current.fileName,
+          reason: 'Raw 到 Soft 局部收缩异常',
+          detail: `同帧局部收缩 ${(rawSoftShrink.max * 100).toFixed(1)}%，可能有身体或衣摆被修边吃掉`,
+          score: rawSoftShrink.max + rawSoftShrink.mean + coverageShrink
+        })
+        continue
+      }
+    }
+
+    if (!rawMetric && baselineMetric) {
+      const baselineLocalDelta = diffAlphaGrid(current.alphaGrid, baselineMetric.alphaGrid)
+      maxLocalAlphaDelta = Math.max(maxLocalAlphaDelta, baselineLocalDelta.max)
+
+      if (baselineLocalDelta.max >= 0.22 && baselineLocalDelta.mean >= 0.035) {
+        issues.push({
+          severity: 'warning',
+          fileName: current.fileName,
+          reason: '局部主体缺失风险',
+          detail: `相对首帧局部变化 ${(baselineLocalDelta.max * 100).toFixed(1)}%，请人工复核身体或衣摆是否被抠空`,
+          score: baselineLocalDelta.max + baselineLocalDelta.mean
+        })
+        continue
+      }
+    }
+
+    if (adjacentLocalDelta.max >= 0.2 && adjacentLocalDelta.mean >= 0.02) {
+      issues.push({
+        severity: 'warning',
+        fileName: current.fileName,
+        reason: '局部 alpha 突变',
+        detail: `与上一帧局部变化 ${(adjacentLocalDelta.max * 100).toFixed(1)}%，可能存在闪烁或局部缺失`,
+        score: adjacentLocalDelta.max + adjacentLocalDelta.mean
+      })
+      continue
+    }
+
+    if (jump >= 0.18) {
+      issues.push({
+        severity: 'warning',
+        fileName: current.fileName,
+        reason: 'alpha 面积突变',
+        detail: `与上一帧差异 ${(jump * 100).toFixed(1)}%`,
+        score: jump
+      })
+    }
+  }
+
+  const averageAlphaCoverage =
+    softMetrics.length > 0
+      ? softMetrics.reduce((total, metric) => total + metric.alphaCoverage, 0) / softMetrics.length
+      : 0
+
+  const errorCount = issues.filter((issue) => issue.severity === 'error').length
+
+  return {
+    ok: issues.length === 0,
+    checkedAt: new Date().toISOString(),
+    inputDir,
+    rawDir,
+    softDir,
+    inputCount: inputFiles.length,
+    rawCount: rawFiles.length,
+    softCount: softFiles.length,
+    checkedFrameCount: softMetrics.length,
+    width: firstMetric?.width ?? 0,
+    height: firstMetric?.height ?? 0,
+    averageAlphaCoverage,
+    maxAlphaJump,
+    maxLocalAlphaDelta,
+    maxRawSoftShrink,
+    issueCount: issues.length,
+    issues: issues
+      .slice()
+      .sort((left, right) => {
+        if (left.severity !== right.severity) {
+          return left.severity === 'error' ? -1 : 1
+        }
+
+        return (right.score ?? 0) - (left.score ?? 0)
+      })
+      .slice(0, 30),
+    message:
+      errorCount > 0
+        ? '质量验收发现数量或尺寸问题。'
+        : issues.length > 0
+          ? '质量验收发现疑似问题帧。'
+          : '质量验收通过，未发现明显问题。'
+  }
 }
 
 function formatBytes(bytes: number): string {
@@ -1973,6 +2265,39 @@ ipcMain.handle('cache:inspect-status', async (_event, args) => {
       softStatus: 'missing',
       rawMessage: '缓存状态读取失败。',
       softMessage: '缓存状态读取失败。'
+    }
+  }
+})
+
+ipcMain.handle('quality:analyze-sequence', async (_event, args) => {
+  try {
+    return await analyzeQualityReport(args)
+  } catch (error) {
+    return {
+      ok: false,
+      checkedAt: new Date().toISOString(),
+      inputDir: args?.inputDir ?? '',
+      rawDir: args?.rawDir ?? '',
+      softDir: args?.softDir ?? '',
+      inputCount: 0,
+      rawCount: 0,
+      softCount: 0,
+      checkedFrameCount: 0,
+      width: 0,
+      height: 0,
+      averageAlphaCoverage: 0,
+      maxAlphaJump: 0,
+      maxLocalAlphaDelta: 0,
+      maxRawSoftShrink: 0,
+      issueCount: 1,
+      issues: [
+        {
+          severity: 'error',
+          reason: '质量验收失败',
+          detail: error instanceof Error ? error.message : String(error)
+        }
+      ],
+      message: '质量验收失败。'
     }
   }
 })

@@ -140,6 +140,16 @@ build/icon.ico
 
 注意：Windows Explorer 可能缓存旧图标。如果最终 exe 已经换了新 icon 但资源管理器仍显示旧图，优先考虑 Explorer icon cache，而不是立刻重做图标。
 
+`build-internal.ps1` 在替换 launcher 图标后会执行 Shell 图标刷新：
+
+```text
+SHChangeNotify update item / assoc changed
+ie4uinit.exe -ClearIconCache
+ie4uinit.exe -show
+```
+
+如果资源管理器仍显示模糊图标，先重启 Explorer，再判断是否为真实图标资源问题。不要在没有提取 exe 图标层验证前重新生成 icon。
+
 ---
 
 ## 4. 一键构建命令
