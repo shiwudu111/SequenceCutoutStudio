@@ -8,7 +8,30 @@
 release/SequenceCutoutStudio-Internal-v0.4.0-internal.1-win-x64.zip
 ```
 
-当前 zip 大小约为 552.76 MB。
+当前 zip 大小约为 552.76 MiB。
+
+发布归档：
+
+```text
+docs/RELEASE-ARCHIVE-v0.4.0-internal.1.md
+```
+
+候选包信息：
+
+```text
+大小：579,606,898 bytes / 552.76 MiB
+构建完成时间：2026-06-16 10:16:45
+GUI 复核记录：docs/PHASE-6H-GUI-VERIFICATION.md
+图标缓存归因：docs/ICON-CACHE-ROOT-CAUSE.md
+```
+
+发布建议：
+
+```text
+先发给 3-5 个真实用户做小范围内测。
+不要马上大范围宣传。
+不要宣传为“全自动高质量去背景”。
+```
 
 ---
 

@@ -1,6 +1,14 @@
 # Changelog: v0.4.0-internal.1
 
-发布日期：待 Phase 6H 正式候选包确认
+发布日期：2026-06-16
+
+候选包：
+
+```text
+release/SequenceCutoutStudio-Internal-v0.4.0-internal.1-win-x64.zip
+大小：579,606,898 bytes / 552.76 MiB
+构建完成时间：2026-06-16 10:16:45
+```
 
 ---
 

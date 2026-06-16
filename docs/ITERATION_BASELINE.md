@@ -1526,3 +1526,39 @@ Phase 6F 正式发布稳定性补强
 Phase 6G 正式上线文档与发布物料
 Phase 6H 正式包构建与上线验收
 ```
+
+---
+
+## 5.6 Phase 6H 发布归档
+
+2026-06-16 Phase 6H 正式候选包构建、GUI 复核与发布归档：
+
+```text
+目标：构建正式候选绿色包，完成最终主流程验收、版本号确认、发布资料归档和首批内测发布判断。
+
+候选包：release/SequenceCutoutStudio-Internal-v0.4.0-internal.1-win-x64.zip
+大小：579,606,898 bytes / 552.76 MiB
+构建完成时间：2026-06-16 10:16:45
+发布分支：main
+候选分支：codex/build-internal-script
+
+归档：新增 docs/RELEASE-ARCHIVE-v0.4.0-internal.1.md；确认 docs/PHASE-6H-GUI-VERIFICATION.md 已记录 GUI 手工复核；确认 docs/ICON-CACHE-ROOT-CAUSE.md 已记录图标缓存归因；发布说明、用户指南、质量指南、反馈模板、发布物料和 changelog 已归档。
+
+GUI 复核：顶层 launcher、环境自检、视频切帧、单帧测试、批量处理、质量验收、导出 PNG 主流程通过；01白底角色、04简单背景、10发光法术、14遮挡旋转代表样本完成复核；10 / 14 能正确提示疑似问题帧。
+
+发布判断：当前版本可以进入首批小范围内测，建议先发给 3-5 个真实用户测试；不建议马上大范围宣传；不宣传为“全自动高质量去背景”。
+
+边界：本次发布归档不改 Electron / launcher / portable Python / rembg_runner / postprocess；不改 UI；不改模型；不改默认参数；不恢复 .venv；不调用 rembg.exe。
+```
+
+Phase 6H 收口判断：
+
+```text
+Phase 6H 已完成并可以收口。v0.4.0-internal.1 可以作为首批小范围内测候选包。
+```
+
+下个阶段唯一主目标：
+
+```text
+Phase 6I：首批 3-5 人真实用户内测反馈整理。只收集反馈、复现问题和分类优先级，不急于扩展新功能。
+```
