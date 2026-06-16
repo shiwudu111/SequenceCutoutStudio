@@ -174,7 +174,7 @@ function App(): JSX.Element {
   const previewPanelRef = useRef<HTMLElement | null>(null)
   const [logs, setLogs] = useState<string[]>([
     'Sequence Cutout Studio 已启动。',
-    '当前阶段：Phase 6B - 固定 UI 布局与功能承载边界。'
+    '当前阶段：Phase 6F - 正式发布稳定性补强。'
   ])
 
   const appendLog = (line: string): void => {
@@ -1457,8 +1457,8 @@ function App(): JSX.Element {
 
         <div className="phase-card">
           <span>当前阶段</span>
-          <strong>Phase 6B</strong>
-          <p>固定输入、处理、预览、导出、质量验收和日志面板边界。</p>
+          <strong>Phase 6F</strong>
+          <p>导出、路径、权限、日志和失败提示稳定性补强。</p>
           <small>{appVersion ? `v${appVersion}` : '读取版本中...'}</small>
         </div>
 
@@ -1973,9 +1973,6 @@ function App(): JSX.Element {
                   <p>当前标签：{displayPreviewTitle}</p>
                 </div>
               )}
-            </div>
-            <div className="preview-hint">
-              双击预览图可放大查看，Raw / Soft 对比可拖动分割线检查边缘。
             </div>
             <div className="preview-status-strip">
               <span>{frameFiles.length > 0 ? `${currentFrameIndex + 1} / ${frameFiles.length}` : '0 / 0'}</span>

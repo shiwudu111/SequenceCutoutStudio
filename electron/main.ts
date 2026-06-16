@@ -39,6 +39,9 @@ const PROCESS_CONFIG_FILE_NAME = 'process-config.json'
 const PROJECT_FILE_NAME = 'project.json'
 const RECENT_PROJECTS_FILE_NAME = 'recent-projects.json'
 const RAW_MANIFEST_FILE_NAME = '.raw-manifest.json'
+const WINDOWS_SAFE_EXPORT_PATH_LIMIT = 240
+const EXPORT_FREE_SPACE_BUFFER_BYTES = 50 * 1024 * 1024
+const EXPORT_FREE_SPACE_MULTIPLIER = 1.1
 
 process.on('uncaughtException', (error) => {
   void appendExportLog(`uncaughtException ${error.stack ?? error.message}`)
@@ -682,11 +685,20 @@ async function analyzeQualityReport(args: { inputDir: string; rawDir?: string; s
 }
 
 function formatBytes(bytes: number): string {
-  if (bytes <= 0) {
-    return '0 MB'
+  if (!Number.isFinite(bytes) || bytes < 0) {
+    return '-'
   }
 
-  return `${(bytes / 1024 / 1024).toFixed(2)} MB`
+  const units = ['B', 'KB', 'MB', 'GB', 'TB']
+  let value = bytes
+  let unitIndex = 0
+
+  while (value >= 1024 && unitIndex < units.length - 1) {
+    value /= 1024
+    unitIndex += 1
+  }
+
+  return `${value.toFixed(unitIndex === 0 ? 0 : 1)} ${units[unitIndex]}`
 }
 
 function formatCommandDebug(title: string, result: RunCommandResult): string {
@@ -712,6 +724,112 @@ function joinDebugDetails(...details: string[]): string {
 function sanitizeFolderName(name: string): string {
   const sanitized = name.replace(/[<>:"/\\|?*\x00-\x1f]/g, '_').trim()
   return sanitized || 'sequence'
+}
+
+function formatErrorDetail(error: unknown): string {
+  return error instanceof Error ? error.stack ?? error.message : String(error)
+}
+
+async function assertReadableDirectory(dirPath: string, label: string): Promise<void> {
+  try {
+    const stat = await fs.stat(dirPath)
+
+    if (!stat.isDirectory()) {
+      throw new Error(`${label}不是文件夹。`)
+    }
+
+    await fs.access(dirPath)
+  } catch (error) {
+    await appendExportLog(`directory read check failed label="${label}" path="${dirPath}" detail=${formatErrorDetail(error)}`)
+    throw new Error(`${label}无法读取，请确认目录存在且有访问权限。`)
+  }
+}
+
+async function assertWritableDirectory(dirPath: string, label: string): Promise<void> {
+  try {
+    await fs.mkdir(dirPath, { recursive: true })
+
+    const testFile = path.join(
+      dirPath,
+      `.scs-write-test-${process.pid}-${Date.now()}-${Math.random().toString(36).slice(2)}.tmp`
+    )
+    await fs.writeFile(testFile, 'ok', 'utf8')
+    await fs.unlink(testFile)
+  } catch (error) {
+    await appendExportLog(`directory write check failed label="${label}" path="${dirPath}" detail=${formatErrorDetail(error)}`)
+    throw new Error(`${label}不可写，请换一个导出位置，或检查磁盘/权限后重试。`)
+  }
+}
+
+async function assertEnoughFreeSpace(dirPath: string, requiredBytes: number, label: string): Promise<void> {
+  const requiredWithBuffer = Math.ceil(requiredBytes * EXPORT_FREE_SPACE_MULTIPLIER) + EXPORT_FREE_SPACE_BUFFER_BYTES
+
+  try {
+    const stats = await fs.statfs(dirPath)
+    const availableBytes = Number(stats.bavail) * Number(stats.bsize)
+
+    await appendExportLog(
+      `disk space label="${label}" path="${dirPath}" required=${requiredWithBuffer} available=${availableBytes}`
+    )
+
+    if (availableBytes < requiredWithBuffer) {
+      throw new Error(
+        `${label}剩余空间不足。至少需要约 ${formatBytes(requiredWithBuffer)}，当前可用约 ${formatBytes(availableBytes)}。`
+      )
+    }
+  } catch (error) {
+    if (error instanceof Error && error.message.includes('剩余空间不足')) {
+      throw error
+    }
+
+    await appendExportLog(`disk space check skipped label="${label}" path="${dirPath}" detail=${formatErrorDetail(error)}`)
+  }
+}
+
+async function pathExists(targetPath: string): Promise<boolean> {
+  try {
+    await fs.access(targetPath)
+    return true
+  } catch {
+    return false
+  }
+}
+
+async function getAvailableExportDir(targetRootDir: string, baseName: string): Promise<string> {
+  const baseDir = path.join(targetRootDir, baseName)
+
+  if (!(await pathExists(baseDir))) {
+    return baseDir
+  }
+
+  for (let index = 2; index <= 99; index += 1) {
+    const candidate = `${baseDir}_${String(index).padStart(2, '0')}`
+
+    if (!(await pathExists(candidate))) {
+      await appendExportLog(`export directory exists, use suffix="${String(index).padStart(2, '0')}"`)
+      return candidate
+    }
+  }
+
+  throw new Error('导出目录已存在较多同名结果，请清理旧导出目录后再试。')
+}
+
+function assertSafeExportPathLength(pathsToCheck: string[]): void {
+  if (process.platform !== 'win32') {
+    return
+  }
+
+  const longestPath = pathsToCheck.reduce((currentLongest, currentPath) =>
+    currentPath.length > currentLongest.length ? currentPath : currentLongest
+  )
+
+  if (longestPath.length <= WINDOWS_SAFE_EXPORT_PATH_LIMIT) {
+    return
+  }
+
+  throw new Error(
+    `导出路径过长，请选择更短的导出位置或缩短命名前缀。当前最长路径约 ${longestPath.length} 个字符。`
+  )
 }
 
 function formatExportTimestamp(date: Date): string {
@@ -1082,6 +1200,10 @@ async function exportTransparentPngSequence(args: {
     : path.join(path.dirname(sourceDir), 'exports')
   await appendExportLog(`start source="${sourceDir}" targetRoot="${targetRootDir}"`)
 
+  await assertReadableDirectory(sourceDir, 'Soft 结果目录')
+  await assertWritableDirectory(targetRootDir, '导出保存位置')
+  await appendExportLog('checked source readable and target writable')
+
   const pngFiles = await listPngFileNames(sourceDir)
   await appendExportLog(`source png count=${pngFiles.length}`)
 
@@ -1098,11 +1220,12 @@ async function exportTransparentPngSequence(args: {
     }
   }
 
+  const sourceBytes = await sumPngFileBytes(sourceDir)
+  await assertEnoughFreeSpace(targetRootDir, sourceBytes, '导出保存位置')
+
   const sourceName = args.inputDir ? path.basename(path.resolve(args.inputDir)) : path.basename(sourceDir)
-  const exportDir = path.join(
-    targetRootDir,
-    `${sanitizeFolderName(sourceName)}_transparent_png_${formatExportTimestamp(new Date())}`
-  )
+  const exportDirBaseName = `${sanitizeFolderName(sourceName)}_transparent_png_${formatExportTimestamp(new Date())}`
+  const exportDir = await getAvailableExportDir(targetRootDir, exportDirBaseName)
   const exportedAt = new Date().toISOString()
   const manifestPath = path.join(exportDir, 'manifest.json')
   const namingPrefix = args.naming?.prefix?.trim() || sourceName || 'frame'
@@ -1120,6 +1243,11 @@ async function exportTransparentPngSequence(args: {
   await appendExportLog(
     `prepared exportDir="${exportDir}" prefix="${namingPrefix}" start=${namingStartIndex} padding=${namingPadding}`
   )
+  assertSafeExportPathLength([
+    exportDir,
+    manifestPath,
+    ...exportedFiles.map((file) => path.join(exportDir, file.fileName))
+  ])
 
   await fs.mkdir(exportDir, { recursive: true })
   await appendExportLog('created export directory')
@@ -1636,7 +1764,7 @@ async function runSingleCutout(args: {
   if (rembgResult.code !== 0) {
     return {
       ok: false,
-      message: 'rembg 单帧抠图失败。',
+      message: '自动去背景失败。请查看详情日志。',
       inputDir,
       frameName: args.frameName,
       originalFile,
@@ -1675,7 +1803,7 @@ async function runSingleCutout(args: {
   if (postprocessResult.code !== 0) {
     return {
       ok: false,
-      message: 'postprocess 单帧后处理失败。',
+      message: '修边失败。请查看详情日志。',
       inputDir,
       frameName: args.frameName,
       originalFile,
@@ -2094,10 +2222,23 @@ ipcMain.handle('dialog:select-frame-folder', async () => {
 ipcMain.handle('dialog:select-export-folder', async () => {
   await appendExportLog('select export folder dialog open')
 
-  const result = await dialog.showOpenDialog({
-    title: '选择导出保存位置',
-    properties: ['openDirectory']
-  })
+  let result: Electron.OpenDialogReturnValue
+
+  try {
+    result = await dialog.showOpenDialog({
+      title: '选择导出保存位置',
+      properties: ['openDirectory', 'createDirectory']
+    })
+  } catch (error) {
+    await appendExportLog(`select export folder dialog error ${formatErrorDetail(error)}`)
+    await dialog.showMessageBox({
+      type: 'error',
+      title: '无法打开导出目录选择',
+      message: '无法打开导出目录选择窗口，请稍后重试，或先把文件夹创建好再选择。',
+      detail: error instanceof Error ? error.message : String(error)
+    })
+    return null
+  }
 
   await appendExportLog(
     `select export folder dialog result canceled=${result.canceled} count=${result.filePaths.length}`
@@ -2107,8 +2248,22 @@ ipcMain.handle('dialog:select-export-folder', async () => {
     return null
   }
 
-  await appendExportLog(`select export folder path="${result.filePaths[0]}"`)
-  return result.filePaths[0]
+  const selectedPath = result.filePaths[0]
+
+  try {
+    await assertWritableDirectory(selectedPath, '导出保存位置')
+  } catch (error) {
+    await dialog.showMessageBox({
+      type: 'warning',
+      title: '导出位置不可用',
+      message: error instanceof Error ? error.message : String(error),
+      detail: `路径：${selectedPath}`
+    })
+    return null
+  }
+
+  await appendExportLog(`select export folder path="${selectedPath}"`)
+  return selectedPath
 })
 
 ipcMain.handle('project:create', async (_event, args: { config: ProcessConfig }) => {

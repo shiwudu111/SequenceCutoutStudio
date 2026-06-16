@@ -2,7 +2,7 @@
 
 版本定位：第一版内测绿色包已通过，进入发布流程固化与下一轮功能开发准备
 
-当前阶段：Phase 6D Raw / Soft 预览验收视图强化已完成，下一步准备 Phase 6E 模型与预设优化验证
+当前阶段：Phase 6H 正式包构建与上线验收准备
 
 基线日期：2026-05-28
 
@@ -140,6 +140,10 @@ Phase 6A：去背景质量评估                    已完成
 Phase 6B：固定 UI 布局与功能承载边界          已完成
 Phase 6C：序列质量验收与问题帧检测             已完成
 Phase 6D：Raw / Soft 预览验收视图强化          已完成
+Phase 6E：模型与预设优化验证                  已完成
+Phase 6F：正式发布稳定性补强                  已完成
+Phase 6G：正式上线文档与发布物料              已完成
+Phase 6H：正式包构建与上线验收                准备开始
 ```
 
 ---
@@ -1249,6 +1253,250 @@ Phase 6D-4：用真实样本复核预览验收工作流，重点确认背景切�
 
 ```text
 Phase 6E：模型与预设优化验证。重点不是立刻改模型，而是基于当前质量边界决定哪些预设、提示或模型方向值得进入正式版前验证。
+```
+
+---
+
+## 5.3 Phase 6E 当前推进记录
+
+2026-06-15 Phase 6E-1 模型与预设验证计划：
+
+```text
+目标：先固定 Phase 6E 的实验边界，避免直接改默认模型、默认参数或正式链路。
+
+完成：新增 docs/PHASE-6E-MODEL-PRESET-VALIDATION.md；记录当前随包模型只有 isnet-general-use.onnx；用 portable Python 查询当前 rembg 包可识别模型名；结合 theranajayant/rembg README 的模型说明，明确第一轮不全量测试所有模型，优先验证 isnet-general-use / isnet-anime / birefnet-general-lite / silueta / u2net；从 E:\cuts\test 中选出 04 / 07 / 09 / 10 / 12 五组代表样本；明确第一轮只做离线模型 / 预设对比，不提交大模型和输出图片。
+
+验证：portable Python 查询 rembg session 清单通过；确认 portable-root/tools/models 当前只有 isnet-general-use.onnx。文档规划变更未运行 tsc / npm build。
+
+边界：不改 Electron / rembg_runner / postprocess；不改 UI；不重新打绿色包；不恢复 .venv；不调用 rembg.exe。
+```
+
+下个 Phase 6E 小步建议：
+
+```text
+Phase 6E-2：建立离线模型 / 预设对比脚本或命令清单，先用当前 isnet-general-use + 多组 Soft 参数跑 04 / 07 / 09 / 10 / 12 的对比，输出本地临时目录，不进入正式 app。
+```
+
+---
+
+2026-06-15 Phase 6E-2 离线预设对比脚本：
+
+```text
+目标：先验证“不同 Soft 参数是否值得作为预设优化方向”，不下载新模型，不跑 rembg，不改默认 app 链路。
+
+完成：新增 scripts/phase-6e-compare-presets.ps1；脚本默认读取 E:\cuts\test 中 04 / 07 / 09 / 10 / 12 五组样本，复用已有 general_raw，分别生成 detail_keep / soft_c / balanced_f / clean_i 四组 Soft 结果；输出到 release/phase-6e-2-preset-compare，并生成 summary.json。
+
+验证：powershell.exe -ExecutionPolicy Bypass -File .\scripts\phase-6e-compare-presets.ps1 通过；5 组样本 x 4 组变体 x 48 帧全部处理成功，skipped=0。
+
+边界：不改 Electron / rembg_runner / postprocess；不改 UI；不重新打绿色包；不恢复 .venv；不调用 rembg.exe；release/phase-6e-2-preset-compare 为本地验证产物，不进入 Git。
+```
+
+下个 Phase 6E 小步建议：
+
+```text
+Phase 6E-3：生成预设对比 contact sheet 或人工视觉复核表，重点看 04 是否退化、07 是否仍误删主体、09 毛发是否更脏、10 第 25-30 帧是否无法靠 Soft 修复、12 是否仍不适合默认流程。
+```
+
+---
+
+2026-06-15 Phase 6E-3 预设 contact sheet 与视觉结论：
+
+```text
+目标：把 Phase 6E-2 生成的四组 Soft 参数结果转成可人工验收的横向对比图，并判断“只调 Soft 参数”是否足以改善当前核心问题。
+
+完成：新增 scripts/phase_6e_build_contact_sheets.py；生成 release/phase-6e-3-preset-contact-sheets；新增 docs/PHASE-6E-PRESET-COMPARISON-REPORT.md。每张图按 original / raw / detail_keep / soft_c / balanced_f / clean_i 横向排列；10 发光法术样本额外纳入 sample_0025 与 sample_0030，专门检查此前确认的主体误删帧。
+
+验证：.\portable-root\tools\python\python.exe scripts\phase_6e_build_contact_sheets.py 通过，生成 5 张 contact sheet；人工抽看 04 / 07 / 09 / 10 / 12 五组图。文档和本地验证产物变更未运行 tsc / npm build。
+
+结论：当前 clean_i 仍适合作为默认“干净收边”；detail_keep 可作为后续高级预设候选，但不足以替换默认 I；07 低对比、10 发光法术、12 透明布料的主要问题发生在 Raw 阶段，不能靠 Soft 参数补回。
+
+边界：不改 Electron / rembg_runner / postprocess；不改 UI；不改默认参数；不下载或接入新模型；不重新打绿色包；release/phase-6e-3-preset-contact-sheets 为本地验证产物，不进入 Git。
+```
+
+下个 Phase 6E 小步建议：
+
+```text
+Phase 6E-4：收束正式版前模型与预设决策。默认继续使用 isnet-general-use + clean_i；detail_keep 作为后续高级预设候选；低对比 / 发光半透明 / 透明布料写入能力边界；不在正式版前新增复杂模型选择。
+```
+
+---
+
+2026-06-15 Phase 6E-4 正式版前决策收束：
+
+```text
+目标：明确 Phase 6E 在正式上线前的边界，避免模型优化继续阻塞 Phase 6F / 6G / 6H。
+
+结论：正式版前不新增复杂模型选择，不改默认模型链路，不把 isnet-anime / silueta / u2net / BiRefNet 等候选模型接入正式 app。当前默认继续使用 isnet-general-use + clean_i，质量验收负责提示疑似问题帧。
+
+原因：Phase 6E-3 已确认 07 低对比、10 发光法术、12 透明布料的核心问题发生在 Raw 阶段，Soft 预设无法补回已经误删的主体；临时新增模型选择会引入包体、离线可用性、速度、失败提示、用户理解成本和绿色包稳定性风险。
+
+后续归属：高级模型选择、细节保留预设、不同素材类型的模型推荐、批量重命名 / 高级导出等能力，统一归入正式版后功能迭代，可与后续会员升级功能合并规划为增值能力。
+
+正式版前保留事项：发布文档需要清楚说明低对比、发光半透明、透明布料不是当前默认流程的稳定承诺；质量验收发现问题帧后，用户可以跳转复核和手工判断。
+
+边界：不改 Electron / rembg_runner / postprocess；不改 UI；不改默认参数；不下载或接入新模型；不重新打绿色包。
+```
+
+下个阶段唯一主目标：
+
+```text
+Phase 6F：正式发布稳定性补强。重点检查导出目录、磁盘空间、路径/权限、日志与失败提示，不再继续扩展模型能力。
+```
+
+---
+
+## 5.4 Phase 6F 当前推进记录
+
+2026-06-15 Phase 6F 阶段切入：
+
+```text
+目标：正式发布稳定性补强，减少用户在导出目录、磁盘空间、路径权限、日志定位和失败提示上遇到闪崩或不明原因失败。
+
+范围：只处理正式发布前稳定性问题；不做模型优化；不新增复杂模型选择；不做会员功能；不改 UI 主布局；不重构处理链路。
+
+继承基线：继续使用 isnet-general-use + clean_i；继续使用 portable Python -> rembg_runner.py -> rembg -> Raw -> postprocess -> Soft 正确链路；不恢复 .venv；不调用 rembg.exe。
+
+第一小步建议：Phase 6F-1 先审查导出目录选择 / 新建文件夹 / 可写性检查 / export.log 记录链路，优先处理此前出现过的新建目录后选择当前文件夹闪崩风险。
+```
+
+---
+
+2026-06-15 Phase 6F-1 导出目录与日志稳定性补强：
+
+```text
+目标：优先补强导出目录选择 / 新建文件夹 / 可写性检查 / export.log 记录链路，降低此前“新建目录后选择当前文件夹”相关崩溃或失败不可定位风险。
+
+完成：electron/main.ts 新增目录可读 / 可写检查；导出透明 PNG 序列前先确认 Soft 结果目录可读、导出保存位置可写；导出目录选择 IPC 增加 createDirectory 属性和异常捕获；选择到不可写目录时返回用户可理解提示，并把技术细节写入 export.log。
+
+日志：export.log 继续记录导出开始、源目录、目标根目录、目录检查、PNG 数量、生成导出目录、复制数量、manifest 路径和错误详情。日志写入失败仍不影响主流程。
+
+验证：.\node_modules\.bin\tsc.cmd --noEmit 通过；npm.cmd run build 通过。
+
+未做：本小步未运行 build-internal.ps1，未重新打绿色包，未做 GUI 手工复核；磁盘空间不足、中文/长路径专项、已有输出目录策略、Python 子进程失败提示留到后续 6F 小步。
+
+边界：不改模型；不改 UI 主布局；不改默认参数；不重构处理链路；不恢复 .venv；不调用 rembg.exe。
+```
+
+下个 Phase 6F 小步建议：
+
+```text
+Phase 6F-2：做路径与权限专项复核，覆盖中文路径、空格路径、长路径、只读目录、已存在输出目录；根据复核结果决定是否继续补磁盘空间检查或输出目录策略。
+```
+
+---
+
+2026-06-15 Phase 6F-2 路径与权限专项复核：
+
+```text
+目标：覆盖中文路径、空格路径、长路径、不可用目录、已存在输出目录等正式发布前常见路径问题，减少导出失败时的系统级报错和误覆盖风险。
+
+完成：electron/main.ts 增加已有导出目录避让策略；如果同名导出目录已存在，自动追加 _02、_03 等后缀，避免同一秒重复导出覆盖旧结果；增加 Windows 安全路径长度检查，导出目录、manifest 或任一输出 PNG 路径过长时提前返回用户可理解提示；保留中文和空格路径，不做错误替换。
+
+新增验证脚本：scripts/phase-6f-verify-export-paths.mjs。脚本在系统临时目录验证中文 + 空格路径、已有目录后缀、长路径保护、文件路径误作为导出目录时拒绝。
+
+验证：node scripts\phase-6f-verify-export-paths.mjs 通过；.\node_modules\.bin\tsc.cmd --noEmit 通过；npm.cmd run build 通过。
+
+未做：本小步未运行 build-internal.ps1，未重新打绿色包，未做 GUI 手工复核；磁盘空间不足提示、Electron 主进程异常捕获复核、Python 子进程失败提示仍留到后续 6F 小步。
+
+边界：不改模型；不改 UI 主布局；不改默认参数；不重构处理链路；不恢复 .venv；不调用 rembg.exe。
+```
+
+下个 Phase 6F 小步建议：
+
+```text
+Phase 6F-3：补充磁盘空间不足与剩余异常提示策略；重点看导出前空间估算、Electron 主进程异常捕获是否已足够、Python 子进程失败信息是否仍有技术噪声。
+```
+
+---
+
+2026-06-15 Phase 6F-3 磁盘空间与剩余失败提示：
+
+```text
+目标：补充导出前磁盘空间不足检查，并复核剩余异常提示是否仍有明显技术噪声。
+
+完成：electron/main.ts 在导出透明 PNG 序列前统计源 PNG 总大小，按 1.1 倍 + 50MB 缓冲估算目标盘所需空间；可用空间不足时提前返回“导出保存位置剩余空间不足”提示，并在 export.log 中记录 required / available；如果系统空间查询失败，只写日志并继续导出，避免因为平台 API 异常造成新阻断。
+
+完成：单帧测试中 Python 子进程失败提示从 “rembg / postprocess” 改为“自动去背景失败 / 修边失败”，技术细节仍保留在详情日志中。批量处理主链路此前已使用“自动去背景失败 / 修边失败 + debug 详情”，本轮未扩大改动。
+
+复核：Electron 主进程已有 uncaughtException / unhandledRejection 写入 export.log；导出选择窗口、导出目录检查、导出执行 catch 均已记录错误详情。本轮不新增全局异常架构。
+
+验证：node scripts\phase-6f-verify-export-paths.mjs 通过；.\node_modules\.bin\tsc.cmd --noEmit 通过；npm.cmd run build 通过。
+
+未做：本小步未运行 build-internal.ps1，未重新打绿色包，未做 GUI 手工复核；绿色包完整验证留到 Phase 6F 收口或 Phase 6H。
+
+边界：不改模型；不改 UI 主布局；不改默认参数；不重构处理链路；不恢复 .venv；不调用 rembg.exe。
+```
+
+下个 Phase 6F 小步建议：
+
+```text
+Phase 6F-4：做 Phase 6F 收口前检查，决定是否需要打绿色包复核；重点确认导出稳定性补强是否足够进入 Phase 6G 发布文档。
+```
+
+---
+
+2026-06-15 Phase 6F-4 绿色包构建与 GUI 复核：
+
+```text
+目标：将 Phase 6F 导出稳定性补强打入绿色包，并通过 GUI 手工复核确认主流程仍可用。
+
+完成：运行 scripts/build-internal.ps1 成功；portable Python import rembg / onnxruntime / PIL + numpy 在脚本内通过；最终 zip 为 release/SequenceCutoutStudio-Internal-v0.4.0-internal.1-win-x64.zip，大小 552.76 MB；最终包中 tools/rembg/.venv 不存在，tools/rembg 旧目录不存在。
+
+GUI 复核：launcher 出现并进入主界面；环境自检通过；E:\cuts\test\10发光法术.mp4 完成视频切帧、单帧测试、批量处理、质量验收提示疑似问题帧；连续两次导出 PNG 序列成功；export.log 记录导出开始、目录检查、磁盘空间检查、PNG 数量、导出目录、manifest 路径和复制数量。
+
+复核发现：预览区提示“双击预览图可放大查看，Raw / Soft 对比可拖动分割线检查边缘。”占用首屏高度；主界面阶段仍显示 Phase 6B。
+
+修正：src/App.tsx 删除预览提示文字，减少预览检查面板高度占用；主界面阶段和启动日志更新为 Phase 6F - 正式发布稳定性补强。
+
+修正后验证：.\node_modules\.bin\tsc.cmd --noEmit 通过；npm.cmd run build 通过；再次运行 scripts/build-internal.ps1 成功；Python import 三项通过；zip 大小 552.76 MB；最终包中 .venv / 旧 tools/rembg 均不存在；绿色包进程已重新启动。
+
+最终人工确认：最新绿色包中预览说明文字已消失，左侧当前阶段已显示 Phase 6F；此前 Windows “找不到路径”是从日志区域复制 / 点击被换行截断路径导致，不是导出失败。
+
+边界：不改模型；不改默认参数；不改处理链路；不恢复 .venv；不调用 rembg.exe。
+```
+
+Phase 6F 收口判断：
+
+```text
+Phase 6F 已完成并可以收口。下一阶段转入 Phase 6G 正式上线文档与发布物料。
+```
+
+下个阶段唯一主目标：
+
+```text
+Phase 6G：正式上线文档与发布物料。重点写清楚使用流程、适合素材、已知限制、反馈方式和发布说明，不再扩展功能。
+```
+
+---
+
+## 5.5 Phase 6G 当前推进记录
+
+2026-06-15 Phase 6G 正式上线文档与发布物料：
+
+```text
+目标：让正式用户知道怎么启动、怎么完成一次处理、什么素材适合当前版本、遇到问题怎么反馈，以及发布宣传时哪些能力可以说、哪些边界不能夸大。
+
+完成：新增 docs/USER-GUIDE.md，覆盖启动、导入、单帧测试、批量处理、预览检查、质量验收、导出和常见问题；新增 docs/QUALITY-GUIDE.md，明确推荐素材、谨慎素材、不建议宣传的素材、人工验收方法和质量验收边界。
+
+完成：重写 docs/INTERNAL-RELEASE.md 为正式发布说明；重写 docs/INTERNAL-FEEDBACK.md 为正式反馈模板；新增 docs/LAUNCH-MATERIALS.md，记录 A / A- 宣传样本建议、截图动图清单、宣传文案和不建议作为宣传主图的样本；新增 docs/CHANGELOG-v0.4.0-internal.1.md。
+
+版本命名：当前仍记录为 0.4.0-internal.1；是否在 Phase 6H 正式候选包中升版，由最终打包验收时决定。
+
+验证：本阶段只改文档，未运行 tsc / npm build，未重新打绿色包。
+
+边界：不改 Electron / launcher / portable Python / rembg_runner / postprocess；不改 UI；不改模型；不改默认参数；不恢复 .venv；不调用 rembg.exe。
+```
+
+Phase 6G 收口判断：
+
+```text
+Phase 6G 已完成并可以收口。下一阶段转入 Phase 6H 正式包构建与上线验收。
+```
+
+下个阶段唯一主目标：
+
+```text
+Phase 6H：构建正式候选绿色包，完成最终主流程验收、多电脑测试准备、版本号确认和发布归档。
 ```
 
 ---

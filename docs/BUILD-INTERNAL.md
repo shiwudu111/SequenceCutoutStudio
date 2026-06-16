@@ -110,7 +110,15 @@ python -m rembg
 当前 icon 来源：
 
 ```text
-E:\buddy-client\assets\resources\ui\main\character\icon.png
+build/icon-layers/icon-16.png
+build/icon-layers/icon-24.png
+build/icon-layers/icon-32.png
+build/icon-layers/icon-40.png
+build/icon-layers/icon-48.png
+build/icon-layers/icon-64.png
+build/icon-layers/icon-96.png
+build/icon-layers/icon-128.png
+build/icon-layers/icon-256.png
 ```
 
 生成脚本：
@@ -135,10 +143,10 @@ build/icon.ico
 如果要指定其他源图：
 
 ```powershell
-.\scripts\generate-icon-assets.ps1 -Source "E:\path\to\icon.png"
+.\scripts\generate-icon-assets.ps1 -LayerDir "E:\path\to\fixed-icon-layers"
 ```
 
-注意：Windows Explorer 可能缓存旧图标。如果最终 exe 已经换了新 icon 但资源管理器仍显示旧图，优先考虑 Explorer icon cache，而不是立刻重做图标。
+注意：不要在正式包构建前临时从外部单张图片重新采样生成图标。当前图标以固定分层 PNG 为准，避免 48 / 64 / 96 等 Explorer 常用尺寸回退为低清重采样结果。Windows Explorer 也可能缓存旧图标；如果最终 exe 已经换了新 icon 但资源管理器仍显示旧图，再考虑清理 Explorer icon cache。
 
 `build-internal.ps1` 在替换 launcher 图标后会执行 Shell 图标刷新：
 
