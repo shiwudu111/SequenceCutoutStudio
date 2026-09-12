@@ -8,6 +8,14 @@
 release/SequenceCutoutStudio-Internal-v0.4.0-internal.1-win-x64.zip
 ```
 
+随包说明：
+
+```text
+快速使用说明.md
+```
+
+用户解压后可以先阅读顶层 `快速使用说明.md`，了解软件能带来什么方便、适合什么素材、怎么完成一次完整处理，以及遇到问题时怎么反馈。
+
 当前 zip 大小约为 552.76 MiB。
 
 发布归档：

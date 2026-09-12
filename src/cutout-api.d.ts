@@ -18,6 +18,7 @@ declare global {
         firstFileName?: string
         lastFileName?: string
         files: string[]
+        frameDurationsMs?: number[]
     }
 
     type CutoutPreset = 'C' | 'F' | 'I' | 'Custom'

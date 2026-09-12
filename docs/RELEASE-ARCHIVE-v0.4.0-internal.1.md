@@ -26,6 +26,7 @@ release/SequenceCutoutStudio-Internal-v0.4.0-internal.1-win-x64.zip
 [x] GUI 手工复核记录：docs/PHASE-6H-GUI-VERIFICATION.md
 [x] 图标缓存归因：docs/ICON-CACHE-ROOT-CAUSE.md
 [x] 发布说明：docs/INTERNAL-RELEASE.md
+[x] 短版随包说明：docs/快速使用说明.md
 [x] 用户使用指南：docs/USER-GUIDE.md
 [x] 素材质量指南：docs/QUALITY-GUIDE.md
 [x] 反馈模板：docs/INTERNAL-FEEDBACK.md

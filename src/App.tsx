@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type DragEvent, type PointerEvent, type WheelEvent } from 'react'
+import { useEffect, useRef, useState, type DragEvent, type PointerEvent } from 'react'
 import './App.css'
 
 type Preset = 'C' | 'F' | 'I' | 'Custom'
@@ -106,6 +106,8 @@ function App(): JSX.Element {
   const [inputPath, setInputPath] = useState('尚未选择素材')
   const [selectedFolder, setSelectedFolder] = useState('')
   const [selectedVideo, setSelectedVideo] = useState('')
+  const isAnimationInput = /\.(gif|webp)$/i.test(selectedVideo)
+  const [isExtracting, setIsExtracting] = useState(false)
   const [outputFolder, setOutputFolder] = useState('')
   const [rawFolder, setRawFolder] = useState('')
   const [softFolder, setSoftFolder] = useState('')
@@ -157,8 +159,38 @@ function App(): JSX.Element {
   const [isDraggingInput, setIsDraggingInput] = useState(false)
   const [isPlaying, setIsPlaying] = useState(false)
   const [playbackFps, setPlaybackFps] = useState(12)
+  const [frameDurationsMs, setFrameDurationsMs] = useState<number[]>([])
+  const [useAnimationTiming, setUseAnimationTiming] = useState(true)
+  const [usePlaybackRange, setUsePlaybackRange] = useState(false)
+  const [rangeStart, setRangeStart] = useState(1)
+  const [rangeEnd, setRangeEnd] = useState(1)
+  const [rangeStartDraft, setRangeStartDraft] = useState('1')
+  const [rangeEndDraft, setRangeEndDraft] = useState('1')
+  useEffect(() => {
+    setRangeStartDraft(String(rangeStart))
+    setRangeEndDraft(String(rangeEnd))
+  }, [rangeStart, rangeEnd, frameFiles])
+
+  const commitPlaybackRange = (field: 'start' | 'end'): void => {
+    const draft = field === 'start' ? rangeStartDraft : rangeEndDraft
+    const previous = field === 'start' ? rangeStart : rangeEnd
+    const parsed = draft.trim() === '' ? previous : Number(draft)
+    const value = Number.isFinite(parsed) ? Math.trunc(parsed) : previous
+    if (field === 'start') {
+      const next = Math.max(1, Math.min(rangeEnd, value))
+      setRangeStart(next)
+      setRangeStartDraft(String(next))
+    } else {
+      const next = Math.max(rangeStart, Math.min(Math.max(1, frameFiles.length), value))
+      setRangeEnd(next)
+      setRangeEndDraft(String(next))
+    }
+  }
+  const playbackStart = usePlaybackRange ? Math.max(0, Math.min(frameFiles.length - 1, rangeStart - 1)) : 0
+  const playbackEnd = usePlaybackRange ? Math.max(playbackStart, Math.min(frameFiles.length - 1, rangeEnd - 1)) : frameFiles.length - 1
   const [compareSplit, setCompareSplit] = useState(50)
   const [lightboxOpen, setLightboxOpen] = useState(false)
+  const [useMainPreviewBackground, setUseMainPreviewBackground] = useState(false)
   const [lightboxScale, setLightboxScale] = useState(1)
   const [lightboxOffset, setLightboxOffset] = useState({ x: 0, y: 0 })
   const [isDraggingLightbox, setIsDraggingLightbox] = useState(false)
@@ -166,6 +198,9 @@ function App(): JSX.Element {
   const [activeWorkflowStep, setActiveWorkflowStep] = useState<WorkflowStepId>('input')
   const previewCacheRef = useRef<Map<string, string>>(new Map())
   const lightboxImageRef = useRef<HTMLImageElement | null>(null)
+  const lightboxRef = useRef<HTMLDivElement | null>(null)
+  const frameIndexRef = useRef(0)
+  const frameRequestRef = useRef(0)
   const logsRef = useRef<HTMLDivElement | null>(null)
   const inputPanelRef = useRef<HTMLElement | null>(null)
   const videoToolsRef = useRef<HTMLDivElement | null>(null)
@@ -174,7 +209,7 @@ function App(): JSX.Element {
   const previewPanelRef = useRef<HTMLElement | null>(null)
   const [logs, setLogs] = useState<string[]>([
     'Sequence Cutout Studio 已启动。',
-    '当前阶段：Phase 6F - 正式发布稳定性补强。'
+    '当前阶段：序列预览优化。'
   ])
 
   const appendLog = (line: string): void => {
@@ -419,20 +454,27 @@ function App(): JSX.Element {
 
     const frameName = filesOverride[safeIndex]
 
+    const request = ++frameRequestRef.current
+    const readFrame = async (folder: string): Promise<string> => {
+      if (!folder) return ''
+      const filePath = joinWindowsPath(folder, frameName)
+      const cached = previewCacheRef.current.get(filePath)
+      if (cached) return cached
+      const result = await window.cutoutAPI.readImageAsDataUrl(filePath)
+      if (!result.ok) return ''
+      if (request === frameRequestRef.current) previewCacheRef.current.set(filePath, result.dataUrl)
+      return result.dataUrl
+    }
+    const [original, raw, soft] = await Promise.all([
+      readFrame(folderOverride), readFrame(rawFolderOverride), readFrame(softFolderOverride)
+    ])
+    if (request !== frameRequestRef.current) return
+    frameIndexRef.current = safeIndex
     setCurrentFrameIndex(safeIndex)
     setPreviewFrameName(frameName)
     setActiveComparePreset(null)
     setCompareItems([])
-
-    await loadPreviewImage('original', joinWindowsPath(folderOverride, frameName), true)
-
-    if (rawFolderOverride) {
-      await loadPreviewImage('raw', joinWindowsPath(rawFolderOverride, frameName), true)
-    }
-
-    if (softFolderOverride) {
-      await loadPreviewImage('soft', joinWindowsPath(softFolderOverride, frameName), true)
-    }
+    setPreviewImages({ original, raw, soft })
   }
 
   const resolvePresetParams = (targetPreset: Preset): EdgePresetParams => {
@@ -529,20 +571,37 @@ function App(): JSX.Element {
       return
     }
 
-    const safeFps = Math.max(1, Math.min(60, playbackFps))
-
-    const timer = window.setTimeout(() => {
-      void loadFrameByIndex(currentFrameIndex + 1)
-    }, 1000 / safeFps)
-
+    let cancelled = false
+    let timer: number
+    const advance = async (): Promise<void> => {
+      const index = frameIndexRef.current
+      const next = index < playbackStart || index >= playbackEnd ? playbackStart : index + 1
+      await loadFrameByIndex(next)
+      if (!cancelled) schedule()
+    }
+    const schedule = (): void => {
+      const index = frameIndexRef.current
+      const duration = useAnimationTiming && frameDurationsMs.length === frameFiles.length
+        ? frameDurationsMs[index] || 100
+        : 1000 / Math.max(1, Math.min(60, playbackFps))
+      timer = window.setTimeout(() => { void advance() }, duration)
+    }
+    if (frameIndexRef.current < playbackStart || frameIndexRef.current > playbackEnd) {
+      void loadFrameByIndex(playbackStart).then(() => { if (!cancelled) schedule() })
+    } else schedule()
     return () => {
+      cancelled = true
       window.clearTimeout(timer)
+      frameRequestRef.current += 1
     }
   }, [
     isPlaying,
-    currentFrameIndex,
     frameFiles.length,
     playbackFps,
+    playbackStart,
+    playbackEnd,
+    frameDurationsMs,
+    useAnimationTiming,
     selectedFolder,
     rawFolder,
     softFolder
@@ -581,6 +640,13 @@ function App(): JSX.Element {
     )
 
     setIsPlaying(false)
+    frameRequestRef.current += 1
+    frameIndexRef.current = 0
+    setUsePlaybackRange(false)
+    setRangeStart(1)
+    setRangeEnd(Math.max(1, files.length))
+    setFrameDurationsMs(result.frameDurationsMs ?? [])
+    setUseAnimationTiming(true)
     previewCacheRef.current.clear()
 
     setFrameFiles(files)
@@ -659,7 +725,7 @@ function App(): JSX.Element {
   const applySelectedVideo = (videoPath: string): void => {
     setSelectedVideo(videoPath)
     setInputPath(videoPath)
-    setAssetType('视频文件')
+    setAssetType(/\.webp$/i.test(videoPath) ? 'WebP 图片 / 动图' : /\.gif$/i.test(videoPath) ? 'GIF 动图' : '视频文件')
     setFrameCount('-')
     setFrameSize('-')
     setFirstFrame('-')
@@ -672,6 +738,10 @@ function App(): JSX.Element {
     setRawFolder('')
     setSoftFolder('')
     setFrameFiles([])
+    frameRequestRef.current += 1
+    frameIndexRef.current = 0
+    setFrameDurationsMs([])
+    setUsePlaybackRange(false)
     setCurrentFrameIndex(0)
     setKeyFrameIndexes([])
     setIsPlaying(false)
@@ -724,6 +794,7 @@ function App(): JSX.Element {
   }
 
   const handleInputDrop = async (event: DragEvent<HTMLDivElement>): Promise<void> => {
+    if (isExtracting) { event.preventDefault(); return }
     event.preventDefault()
     event.stopPropagation()
     setIsDraggingInput(false)
@@ -770,6 +841,7 @@ function App(): JSX.Element {
   }
 
   const handleExtractFrames = async (): Promise<void> => {
+    if (isExtracting) return
     if (!selectedVideo) {
       appendLog('请先选择视频文件。')
       return
@@ -777,33 +849,43 @@ function App(): JSX.Element {
 
     appendLog('开始视频切帧。')
     appendLog(`视频：${selectedVideo}`)
-    appendLog(`FPS：${videoFps}`)
-    appendLog(`时长：${videoDuration > 0 ? `${videoDuration} 秒` : '全长'}`)
+    if (isAnimationInput) appendLog('按动图原始帧拆分，保留透明度与每帧时长。')
+    else {
+      appendLog(`FPS：${videoFps}`)
+      appendLog(`时长：${videoDuration > 0 ? `${videoDuration} 秒` : '全长'}`)
+    }
     appendLog(`输出前缀：${videoOutputPrefix}`)
 
-    const result = await window.cutoutAPI.extractVideoFrames({
-      videoPath: selectedVideo,
-      fps: videoFps,
-      durationSeconds: videoDuration,
-      outputPrefix: videoOutputPrefix
-    })
+    setIsExtracting(true)
+    try {
+      const result = await window.cutoutAPI.extractVideoFrames({
+        videoPath: selectedVideo,
+        fps: videoFps,
+        durationSeconds: videoDuration,
+        outputPrefix: videoOutputPrefix
+      })
 
-    appendLog(result.message ?? (result.ok ? '视频切帧完成。' : '视频切帧失败。'))
-    appendLog(`输出目录：${result.outputDir}`)
-    appendLog(`输出 PNG 数量：${result.outputCount}`)
+      appendLog(result.message ?? (result.ok ? '视频切帧完成。' : '视频切帧失败。'))
+      appendLog(`输出目录：${result.outputDir}`)
+      appendLog(`输出 PNG 数量：${result.outputCount}`)
 
-    if (!result.ok) {
-      if (result.ffmpegLog.trim()) {
-        appendLog(result.ffmpegLog.trim())
+      if (!result.ok) {
+        if (result.ffmpegLog.trim()) {
+          appendLog(result.ffmpegLog.trim())
+        }
+        return
       }
-      return
+
+      setOutputFolder(result.outputDir)
+
+      appendLog('开始扫描切帧输出目录...')
+      const scanResult = await window.cutoutAPI.scanFrameFolder(result.outputDir)
+      await applyFrameFolderScanResult(result.outputDir, scanResult)
+    } catch (error) {
+      appendLog(`切帧失败：${String(error)}`)
+    } finally {
+      setIsExtracting(false)
     }
-
-    setOutputFolder(result.outputDir)
-
-    appendLog('开始扫描切帧输出目录...')
-    const scanResult = await window.cutoutAPI.scanFrameFolder(result.outputDir)
-    await applyFrameFolderScanResult(result.outputDir, scanResult)
   }
 
   const buildProcessConfig = (): ProcessConfig => {
@@ -918,6 +1000,7 @@ function App(): JSX.Element {
     }
 
     setLightboxOpen(true)
+    setUseMainPreviewBackground(false)
     setLightboxScale(1)
     setLightboxOffset({ x: 0, y: 0 })
   }
@@ -927,11 +1010,29 @@ function App(): JSX.Element {
     setIsDraggingLightbox(false)
   }
 
-  const handleLightboxWheel = (event: WheelEvent<HTMLDivElement>): void => {
-    event.preventDefault()
-    const direction = event.deltaY < 0 ? 1 : -1
-    setLightboxScale((prev) => Math.max(0.35, Math.min(8, prev + direction * 0.15)))
-  }
+  useEffect(() => {
+    const element = lightboxRef.current
+    if (!lightboxOpen || !element) return
+    const previousOverflow = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
+    const handleWheel = (event: WheelEvent): void => {
+      event.preventDefault()
+      event.stopPropagation()
+      if ((event.target as HTMLElement).closest('.preview-lightbox-toolbar') || event.deltaY === 0) return
+      const direction = event.deltaY < 0 ? 1 : -1
+      setLightboxScale((prev) => Math.max(0.35, Math.min(8, prev + direction * 0.15)))
+    }
+    const handleKey = (event: KeyboardEvent): void => {
+      if (event.key === 'Escape') handleCloseLightbox()
+    }
+    element.addEventListener('wheel', handleWheel, { passive: false })
+    window.addEventListener('keydown', handleKey)
+    return () => {
+      document.body.style.overflow = previousOverflow
+      element.removeEventListener('wheel', handleWheel)
+      window.removeEventListener('keydown', handleKey)
+    }
+  }, [lightboxOpen])
 
   const handleLightboxPointerDown = (event: PointerEvent<HTMLImageElement>): void => {
     event.currentTarget.setPointerCapture(event.pointerId)
@@ -1457,8 +1558,8 @@ function App(): JSX.Element {
 
         <div className="phase-card">
           <span>当前阶段</span>
-          <strong>Phase 6F</strong>
-          <p>导出、路径、权限、日志和失败提示稳定性补强。</p>
+          <strong>序列预览优化</strong>
+          <p>GIF / WebP 拆帧、放大查看与区间循环。</p>
           <small>{appVersion ? `v${appVersion}` : '读取版本中...'}</small>
         </div>
 
@@ -1566,10 +1667,10 @@ function App(): JSX.Element {
             </div>
 
             <div className="button-row">
-              <button className="primary-button" onClick={handleSelectVideoFile}>
+              <button className="primary-button" onClick={handleSelectVideoFile} disabled={isExtracting}>
                 选择视频
               </button>
-              <button className="secondary-button" onClick={handleSelectFrameFolder}>
+              <button className="secondary-button" onClick={handleSelectFrameFolder} disabled={isExtracting}>
                 选择序列帧文件夹
               </button>
             </div>
@@ -1582,7 +1683,7 @@ function App(): JSX.Element {
               onDrop={handleInputDrop}
             >
               <strong>拖入视频、序列帧文件夹，或序列帧 PNG</strong>
-              <p>支持 MP4 / MOV / WEBM / MKV，也支持直接拖入 PNG 序列帧目录或其中一张 PNG。</p>
+              <p>支持 MP4 / MOV / WEBM / MKV / GIF / WebP，也支持直接拖入 PNG 序列帧目录或其中一张 PNG。</p>
             </div>
 
             <div
@@ -1598,6 +1699,7 @@ function App(): JSX.Element {
                     type="number"
                     min="1"
                     value={videoFps}
+                    disabled={isAnimationInput || isExtracting}
                     onChange={(event) => setVideoFps(Number(event.target.value))}
                   />
                 </label>
@@ -1608,6 +1710,7 @@ function App(): JSX.Element {
                     type="number"
                     min="0"
                     value={videoDuration}
+                    disabled={isAnimationInput || isExtracting}
                     onChange={(event) => setVideoDuration(Number(event.target.value))}
                   />
                 </label>
@@ -1622,8 +1725,8 @@ function App(): JSX.Element {
                 </label>
               </div>
 
-              <button className="secondary-button" onClick={handleExtractFrames} disabled={!selectedVideo}>
-                切成序列帧
+              <button className="secondary-button" onClick={handleExtractFrames} disabled={!selectedVideo || isExtracting}>
+                {isExtracting ? '正在切帧...' : '切成序列帧'}
               </button>
 
               <button
@@ -2095,13 +2198,31 @@ function App(): JSX.Element {
                   min="1"
                   max="60"
                   value={playbackFps}
+                  disabled={useAnimationTiming && frameDurationsMs.length > 0}
                   onChange={(event) => handlePlaybackFpsChange(Number(event.target.value))}
                 />
               </label>
 
+              {frameDurationsMs.length > 0 && (
+                <label className="preview-check"><input type="checkbox" checked={useAnimationTiming}
+                  onChange={(event) => setUseAnimationTiming(event.target.checked)} />原始节奏</label>
+              )}
+              <label className="preview-check"><input type="checkbox" checked={usePlaybackRange}
+                disabled={frameFiles.length === 0}
+                onChange={(event) => setUsePlaybackRange(event.target.checked)} />区间循环</label>
+              <label className="playback-fps"><span>起始帧</span><input type="number" min={1} max={rangeEnd}
+                disabled={!usePlaybackRange || frameFiles.length === 0} value={rangeStartDraft}
+                onChange={(event) => setRangeStartDraft(event.target.value)}
+                onBlur={() => commitPlaybackRange('start')}
+                onKeyDown={(event) => { if (event.key === 'Enter') event.currentTarget.blur() }} /></label>
+              <label className="playback-fps"><span>结束帧</span><input type="number" min={rangeStart} max={frameFiles.length}
+                disabled={!usePlaybackRange || frameFiles.length === 0} value={rangeEndDraft}
+                onChange={(event) => setRangeEndDraft(event.target.value)}
+                onBlur={() => commitPlaybackRange('end')}
+                onKeyDown={(event) => { if (event.key === 'Enter') event.currentTarget.blur() }} /></label>
               <div className="playback-status">
                 {frameFiles.length > 0
-                  ? `${isPlaying ? '播放中' : '已暂停'} · ${displayPreviewTitle} · ${currentFrameIndex + 1} / ${frameFiles.length} · 循环`
+                  ? `${isPlaying ? '播放中' : '已暂停'} · ${displayPreviewTitle} · ${currentFrameIndex + 1} / ${frameFiles.length} · ${playbackStart + 1}-${playbackEnd + 1} 循环`
                   : '等待序列帧'}
               </div>
             </div>
@@ -2190,8 +2311,11 @@ function App(): JSX.Element {
       </section>
       {lightboxOpen ? (
         <div
-          className="preview-lightbox"
-          onWheel={handleLightboxWheel}
+          ref={lightboxRef}
+          className={`preview-lightbox${useMainPreviewBackground ? ` ${previewBackground}` : ''}`}
+          style={useMainPreviewBackground && previewBackground === 'custom' && customPreviewBackgroundDataUrl
+            ? { backgroundImage: `url("${customPreviewBackgroundDataUrl}")`, backgroundSize: 'auto', backgroundPosition: 'center', backgroundRepeat: 'no-repeat' }
+            : undefined}
           onClick={(event) => {
             if (event.target === event.currentTarget) {
               handleCloseLightbox()
@@ -2201,6 +2325,23 @@ function App(): JSX.Element {
           <div className="preview-lightbox-toolbar">
             <strong>{displayPreviewTitle}</strong>
             <span>{Math.round(lightboxScale * 100)}%</span>
+            <label className="preview-check"><input type="checkbox" checked={useMainPreviewBackground}
+              onChange={(event) => setUseMainPreviewBackground(event.target.checked)} />使用主预览背景</label>
+            <select className="lightbox-background-select" aria-label="放大预览背景"
+              title="切换放大预览背景" value={previewBackground} disabled={!useMainPreviewBackground}
+              onChange={(event) => {
+                if (event.target.value === 'choose-image') {
+                  void handleSelectCustomPreviewBackground()
+                } else {
+                  setPreviewBackground(event.target.value as PreviewBackground)
+                }
+              }}>
+              {PREVIEW_BACKGROUND_OPTIONS.map((option) => <option key={option.value} value={option.value}
+                disabled={option.value === 'custom' && !customPreviewBackgroundDataUrl}>
+                {option.value === 'custom' ? '图片背景' : `${option.label}背景`}
+              </option>)}
+              <option value="choose-image">选择背景图片...</option>
+            </select>
             <button onClick={handleResetLightbox}>还原</button>
             <button onClick={handleCloseLightbox}>关闭</button>
           </div>

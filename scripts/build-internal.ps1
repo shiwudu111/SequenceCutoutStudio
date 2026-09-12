@@ -1,5 +1,6 @@
 param(
-    [string]$Version = ""
+    [string]$Version = "",
+    [switch]$CheckOnly
 )
 
 $ErrorActionPreference = "Stop"
@@ -64,6 +65,9 @@ function Sync-RuntimeToolSources {
     New-Item -ItemType Directory -Path $postprocessTargetDir -Force | Out-Null
     Copy-Item -LiteralPath $rembgRunnerSource -Destination $rembgRunnerTarget -Force
     Copy-Item -LiteralPath $postprocessSource -Destination $postprocessTarget -Force
+    $animationSource = Join-Path $runtimeToolsDir "extract_animation.py"
+    Assert-Exists -Path $animationSource -Message "GIF/WebP decoder source was not found."
+    Copy-Item -LiteralPath $animationSource -Destination (Join-Path $portableToolsDir "extract_animation.py") -Force
 }
 
 function Wait-ForPath {
@@ -92,6 +96,8 @@ function Move-WithRetry {
         [int]$Attempts = 10
     )
 
+    Assert-ReleasePath -Path $Source
+    Assert-ReleasePath -Path $Destination
     for ($attempt = 1; $attempt -le $Attempts; $attempt++) {
         try {
             Move-Item -LiteralPath $Source -Destination $Destination -Force
@@ -289,11 +295,32 @@ function Find-ResourceHacker {
     throw "Could not find ResourceHacker.exe. Set SCS_RESOURCE_HACKER_EXE or place it at release\tools\resource-hacker\ResourceHacker.exe."
 }
 
+function Assert-ReleasePath {
+    param([string]$Path)
+
+    $boundary = [IO.Path]::GetFullPath((Join-Path (Get-RepoRoot) "release")).TrimEnd('\')
+    $target = [IO.Path]::GetFullPath($Path)
+    if (-not $target.StartsWith($boundary + '\', [StringComparison]::OrdinalIgnoreCase)) {
+        throw "Refusing to modify a path outside release: $target"
+    }
+    $current = $target
+    while ($current -and $current.Length -ge $boundary.Length) {
+        if (Test-Path -LiteralPath $current) {
+            $item = Get-Item -LiteralPath $current -Force
+            if ($item.Attributes -band [IO.FileAttributes]::ReparsePoint) {
+                throw "Refusing to modify a linked release path: $current"
+            }
+        }
+        $current = Split-Path -Parent $current
+    }
+}
+
 function Remove-IfExists {
     param([string]$Path)
 
     if (Test-Path -LiteralPath $Path) {
         Write-Host "Removing $Path"
+        Assert-ReleasePath -Path $Path
         Remove-Item -LiteralPath $Path -Recurse -Force
     }
 }
@@ -318,7 +345,7 @@ function Remove-SampleOutputs {
             Get-ChildItem -LiteralPath $sampleRoot -Directory -Recurse -Filter $pattern -ErrorAction SilentlyContinue |
                 ForEach-Object {
                     Write-Host "Removing sample output $($_.FullName)"
-                    Remove-Item -LiteralPath $_.FullName -Recurse -Force
+                    Remove-IfExists -Path $_.FullName
                 }
         }
     }
@@ -337,8 +364,23 @@ function Keep-OnlySampleVideo {
         Where-Object { $_.Name -ne "sample_video.mp4" } |
         ForEach-Object {
             Write-Host "Removing sample extra $($_.FullName)"
-            Remove-Item -LiteralPath $_.FullName -Recurse -Force
+            Remove-IfExists -Path $_.FullName
         }
+}
+
+function Copy-ReleaseUserDocs {
+    param(
+        [string]$Root,
+        [string]$InternalDir
+    )
+
+    # Keep this script ASCII-compatible with Windows PowerShell 5.1 without a BOM.
+    $quickstartName = (-join [char[]]@(0x5FEB, 0x901F, 0x4F7F, 0x7528, 0x8BF4, 0x660E)) + ".md"
+    $quickstartSource = Join-Path (Join-Path $Root "docs") $quickstartName
+    $quickstartTarget = Join-Path $InternalDir $quickstartName
+
+    Assert-Exists -Path $quickstartSource -Message "User quickstart document was not found."
+    Copy-Item -LiteralPath $quickstartSource -Destination $quickstartTarget -Force
 }
 
 function Compress-InternalPackage {
@@ -347,9 +389,8 @@ function Compress-InternalPackage {
         [string]$ZipPath
     )
 
-    if (Test-Path -LiteralPath $ZipPath) {
-        Remove-Item -LiteralPath $ZipPath -Force
-    }
+    Assert-ReleasePath -Path $ZipPath
+    Assert-NotExists -Path $ZipPath -Message "Refusing to replace an existing zip."
 
     Add-Type -AssemblyName System.IO.Compression.FileSystem
     [System.IO.Compression.ZipFile]::CreateFromDirectory(
@@ -363,11 +404,14 @@ function Compress-InternalPackage {
 $root = Get-RepoRoot
 Set-Location -LiteralPath $root
 
+$packageJsonPath = Join-Path $root "package.json"
+Assert-Exists -Path $packageJsonPath -Message "package.json was not found."
+$packageJson = Get-Content -LiteralPath $packageJsonPath -Raw -Encoding UTF8 | ConvertFrom-Json
 if (-not $Version) {
-    $packageJsonPath = Join-Path $root "package.json"
-    Assert-Exists -Path $packageJsonPath -Message "package.json was not found."
-    $packageJson = Get-Content -LiteralPath $packageJsonPath -Raw | ConvertFrom-Json
     $Version = $packageJson.version
+}
+if ($Version -notmatch '^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?(?:\+[0-9A-Za-z.-]+)?$' -or $Version -ne $packageJson.version) {
+    throw "Version must match package.json and be a valid release version. Update package.json first."
 }
 
 $releaseDir = Join-Path $root "release"
@@ -379,7 +423,45 @@ $iconPath = Join-Path $root "build\icon.ico"
 $splashPath = Join-Path $root "build\splash.bmp"
 $launcherOutput = Join-Path $internalDir "SequenceCutoutStudio-Internal.exe"
 $zipPath = Join-Path $releaseDir "SequenceCutoutStudio-Internal-v$Version-win-x64.zip"
-$logPath = Join-Path $releaseDir "build-internal.log"
+$buildId = Get-Date -Format 'yyyyMMdd-HHmmss-fff'
+if (Test-Path -LiteralPath $zipPath) {
+    $zipPath = Join-Path $releaseDir "SequenceCutoutStudio-Internal-v$Version-win-x64-$buildId.zip"
+}
+$logPath = Join-Path $releaseDir "build-internal-$buildId.log"
+$resultPath = Join-Path $releaseDir "build-internal-$buildId.json"
+
+Write-Step "Checking build prerequisites (no packaging yet)"
+$npm = (Get-Command npm.cmd -ErrorAction Stop).Source
+$builder = Join-Path $root "node_modules\.bin\electron-builder.cmd"
+$tsc = Join-Path $root "node_modules\.bin\tsc.cmd"
+$csc = Find-Csc
+$resourceHacker = Find-ResourceHacker
+$quickstartName = (-join [char[]]@(0x5FEB, 0x901F, 0x4F7F, 0x7528, 0x8BF4, 0x660E)) + ".md"
+foreach ($required in @($builder, $tsc, $launcherSource, $iconPath, $splashPath,
+    (Join-Path $root "docs\$quickstartName"),
+    (Join-Path $root "runtime-tools\extract_animation.py"),
+    (Join-Path $root "runtime-tools\rembg_runner.py"),
+    (Join-Path $root "runtime-tools\postprocess\batch_clean_cutout_soft.py"),
+    (Join-Path $root "portable-root\tools\python\python.exe"),
+    (Join-Path $root "portable-root\tools\Lib\site-packages\rembg"),
+    (Join-Path $root "portable-root\tools\Lib\site-packages\onnxruntime"),
+    (Join-Path $root "portable-root\tools\Lib\site-packages\PIL"),
+    (Join-Path $root "portable-root\tools\Lib\site-packages\numpy"),
+    (Join-Path $root "portable-root\tools\models\isnet-general-use.onnx"),
+    (Join-Path $root "portable-root\tools\ffmpeg\ffmpeg.exe"),
+    (Join-Path $root "portable-root\tools\pyvenv.cfg"))) {
+    Assert-Exists -Path $required -Message "Build prerequisite was not found."
+}
+Assert-LauncherIconSource -Path $iconPath
+Assert-ReleasePath -Path $internalDir
+Assert-ReleasePath -Path $winUnpackedDir
+Assert-ReleasePath -Path $zipPath
+Write-Host "Version: $Version"
+Write-Host "Zip target: $zipPath"
+if ($CheckOnly) {
+    Write-Host "Prerequisites passed. No build, cleanup or packaging was performed."
+    return
+}
 
 New-Item -ItemType Directory -Path $releaseDir -Force | Out-Null
 Start-Transcript -Path $logPath -Force | Out-Null
@@ -390,10 +472,11 @@ Write-Step "Syncing tracked runtime tool scripts"
 Sync-RuntimeToolSources -Root $root
 
 Write-Step "Building renderer and Electron main process"
-Invoke-CommandChecked -FilePath "npm.cmd" -Arguments @("run", "build") -WorkingDirectory $root
+Invoke-CommandChecked -FilePath $tsc -Arguments @("--noEmit") -WorkingDirectory $root
+Invoke-CommandChecked -FilePath $npm -Arguments @("run", "build") -WorkingDirectory $root
 
 Write-Step "Running electron-builder dir target"
-Invoke-CommandChecked -FilePath "npx.cmd" -Arguments @("electron-builder", "--win", "dir") -WorkingDirectory $root
+Invoke-CommandChecked -FilePath $builder -Arguments @("--win", "dir") -WorkingDirectory $root
 
 Write-Step "Cleaning legacy rembg runtime from win-unpacked"
 $legacyVenv = Join-Path $winUnpackedDir "resources\portable-root\tools\rembg\.venv"
@@ -402,7 +485,6 @@ Remove-IfExists -Path $legacyVenv
 Remove-IfExists -Path $legacyRembgDir
 
 Write-Step "Cleaning sample output directories"
-Remove-SampleOutputs -Root $root
 Remove-SampleOutputs -Root (Join-Path $winUnpackedDir "resources")
 Keep-OnlySampleVideo -Root (Join-Path $winUnpackedDir "resources")
 
@@ -411,6 +493,9 @@ Remove-IfExists -Path $internalDir
 New-Item -ItemType Directory -Path $internalAppDir -Force | Out-Null
 Assert-Exists -Path $winUnpackedDir -Message "electron-builder output was not found."
 Copy-Item -Path (Join-Path $winUnpackedDir "*") -Destination $internalAppDir -Recurse -Force
+
+Write-Step "Copying release user documents"
+Copy-ReleaseUserDocs -Root $root -InternalDir $internalDir
 
 Write-Step "Compiling launcher"
 Assert-Exists -Path $launcherSource -Message "Launcher source was not found."
@@ -480,6 +565,10 @@ $pythonExe = Join-Path $finalRoot "tools\python\python.exe"
 $requiredPaths = @(
     $pythonExe,
     (Join-Path $finalRoot "tools\rembg_runner.py"),
+    (Join-Path $finalRoot "tools\extract_animation.py"),
+    (Join-Path $finalRoot "tools\models\isnet-general-use.onnx"),
+    (Join-Path $finalRoot "tools\ffmpeg\ffmpeg.exe"),
+    (Join-Path $finalRoot "tools\pyvenv.cfg"),
     (Join-Path $finalRoot "tools\postprocess\batch_clean_cutout_soft.py"),
     (Join-Path $finalRoot "tools\Lib\site-packages\rembg"),
     (Join-Path $finalRoot "tools\Lib\site-packages\onnxruntime"),
@@ -497,12 +586,28 @@ Write-Step "Running portable Python import checks"
 Invoke-CommandChecked -FilePath $pythonExe -Arguments @("-c", "import rembg; print('rembg ok')") -WorkingDirectory $root
 Invoke-CommandChecked -FilePath $pythonExe -Arguments @("-c", "import onnxruntime; print('onnxruntime ok')") -WorkingDirectory $root
 Invoke-CommandChecked -FilePath $pythonExe -Arguments @("-c", "import PIL, numpy; print('postprocess deps ok')") -WorkingDirectory $root
+Invoke-CommandChecked -FilePath $pythonExe -Arguments @("-c", "from PIL import features; assert features.check('webp'), 'Pillow WebP support missing'; print('webp support ok')") -WorkingDirectory $root
 
 Write-Step "Creating zip package"
 Compress-InternalPackage -SourceDir $internalDir -ZipPath $zipPath
 
 $zip = Get-Item -LiteralPath $zipPath
 $zipSizeMb = [Math]::Round($zip.Length / 1MB, 2)
+$summary = [ordered]@{
+    status = 'success'
+    version = $Version
+    finishedAt = (Get-Date).ToString('o')
+    elapsedSeconds = [Math]::Round($script:BuildStopwatch.Elapsed.TotalSeconds, 1)
+    packageDirectory = $internalDir
+    zipPath = $zipPath
+    zipBytes = $zip.Length
+    zipSizeMB = $zipSizeMb
+    sha256 = (Get-FileHash -LiteralPath $zipPath -Algorithm SHA256).Hash
+    logPath = $logPath
+    checks = @('typescript', 'build', 'launcher-icons', 'runtime-layout', 'rembg', 'onnxruntime', 'PIL-numpy', 'webp')
+    manualAcceptance = 'pending: launcher GUI, full workflow and clean PC'
+}
+$summary | ConvertTo-Json -Depth 4 | Set-Content -LiteralPath $resultPath -Encoding UTF8
 Write-Host ""
 Write-Host "Zip created: $zipPath"
 Write-Host "Zip size: $zipSizeMb MB"
@@ -514,7 +619,18 @@ if ($zipSizeMb -gt 700) {
 Write-Host ""
 Write-Host "Total elapsed: $([Math]::Round($script:BuildStopwatch.Elapsed.TotalSeconds, 1))s"
 Write-Host "Build log: $logPath"
+Write-Host "Build summary: $resultPath"
 Write-Host "Internal package build completed."
+}
+catch {
+    [ordered]@{
+        status = 'failed'
+        version = $Version
+        failedAt = (Get-Date).ToString('o')
+        error = $_.Exception.Message
+        logPath = $logPath
+    } | ConvertTo-Json | Set-Content -LiteralPath $resultPath -Encoding UTF8
+    throw
 }
 finally {
     Stop-Transcript | Out-Null

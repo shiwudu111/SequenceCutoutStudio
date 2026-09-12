@@ -324,7 +324,7 @@ function safeName(input: string): string {
 
 function isSupportedVideoFile(filePath: string): boolean {
   const ext = path.extname(filePath).toLowerCase()
-  return ['.mp4', '.mov', '.webm', '.mkv'].includes(ext)
+  return ['.mp4', '.mov', '.webm', '.mkv', '.gif', '.webp'].includes(ext)
 }
 
 function isPngFile(filePath: string): boolean {
@@ -1020,6 +1020,24 @@ async function scanFrameFolder(folderPath: string) {
 
   const lastFile = path.join(folderPath, pngFiles[pngFiles.length - 1])
 
+  let frameDurationsMs: number[] | undefined
+  for (const kind of ['gif', 'webp']) {
+    try {
+      const timing = JSON.parse(await fs.readFile(path.join(folderPath, `${kind}-timing.json`), 'utf8'))
+      if (timing.version === 1 && timing.kind === kind && Array.isArray(timing.frames) &&
+        timing.frames.length === pngFiles.length && timing.frames.every(
+          (frame: { fileName?: string; durationMs?: number }, index: number) =>
+            frame.fileName === pngFiles[index] && typeof frame.durationMs === 'number' &&
+            Number.isFinite(frame.durationMs) && frame.durationMs >= 0
+        )) {
+        frameDurationsMs = timing.frames.map((frame: { durationMs: number }) => frame.durationMs)
+        break
+      }
+    } catch {
+      // Timing is optional: ordinary PNG folders retain FPS-based playback.
+    }
+  }
+
   return {
     ok: true,
     folderPath,
@@ -1035,7 +1053,8 @@ async function scanFrameFolder(folderPath: string) {
     lastFile,
     firstFileName: pngFiles[0],
     lastFileName: pngFiles[pngFiles.length - 1],
-    files: pngFiles
+    files: pngFiles,
+    frameDurationsMs
   }
 }
 
@@ -1650,6 +1669,30 @@ async function extractVideoFrames(args: {
   const videoDir = path.dirname(videoPath)
   const videoBaseName = safeName(path.basename(videoPath, path.extname(videoPath))) || 'video'
 
+  const extension = path.extname(videoPath).toLowerCase()
+  if (extension === '.gif' || extension === '.webp') {
+    const kind = extension.slice(1)
+    const label = kind === 'webp' ? 'WebP' : 'GIF'
+    const runtimePaths = getRuntimePaths()
+    const outputPrefix = safeName(args.outputPrefix || videoBaseName) || 'frame'
+    const outputDir = path.join(videoDir, `${videoBaseName}_${kind}_${Date.now()}_${Math.random().toString(16).slice(2, 8)}`)
+    const decoderPath = app.isPackaged
+      ? path.join(runtimePaths.toolsDir, 'extract_animation.py')
+      : path.join(app.getAppPath(), 'runtime-tools', 'extract_animation.py')
+    const result = await runCommand(runtimePaths.pythonExe, [decoderPath, videoPath, outputDir, outputPrefix], {
+      env: createPythonToolEnv(runtimePaths)
+    })
+    const outputCount = await countPngFiles(outputDir)
+    return {
+      ok: result.code === 0 && outputCount > 0,
+      message: result.code === 0 && outputCount > 0 ? `${label} 原始帧拆分完成。` : `${label} 拆帧失败，请检查文件和日志。`,
+      videoPath, outputDir,
+      outputPattern: path.join(outputDir, `${outputPrefix}_%04d.png`),
+      fps: 0, durationSeconds: 0, outputCount,
+      ffmpegLog: `${result.stdout}\n${result.stderr}`
+    }
+  }
+
   const fps = Number.isFinite(args.fps) && args.fps > 0 ? args.fps : 12
   const durationSeconds =
     Number.isFinite(args.durationSeconds) && args.durationSeconds > 0
@@ -2175,7 +2218,7 @@ ipcMain.handle('dialog:select-video-file', async () => {
     filters: [
       {
         name: 'Video',
-        extensions: ['mp4', 'mov', 'webm', 'mkv']
+        extensions: ['mp4', 'mov', 'webm', 'mkv', 'gif', 'webp']
       }
     ]
   })

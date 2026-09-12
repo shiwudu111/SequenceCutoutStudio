@@ -162,10 +162,12 @@ ie4uinit.exe -show
 
 ## 4. 一键构建命令
 
-推荐构建命令：
+日常更新后，关闭正在运行的绿色包程序，直接双击项目根目录的 `一键打包.cmd`。窗口会显示进度并在结束后停留，便于查看成功或错误信息。不需要再次让 AI 手工组织打包步骤。
+
+命令行等效入口（不暂停窗口，适合自动调用）：
 
 ```powershell
-.\scripts\build-internal.ps1
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\build-internal.ps1
 ```
 
 当前脚本默认会读取：
@@ -174,10 +176,12 @@ ie4uinit.exe -show
 package.json version
 ```
 
-也可以手动指定版本号：
+版本号统一来自 `package.json`，发新版先更新其中的 version；`-Version` 仅允许传入与之相同的值，避免包名和界面版本不一致。
+
+只检查打包前提，不构建、不清理、不打包：
 
 ```powershell
-.\scripts\build-internal.ps1 -Version "0.4.0-internal.1"
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\build-internal.ps1 -CheckOnly
 ```
 
 构建产物：
@@ -185,8 +189,25 @@ package.json version
 ```text
 release/SequenceCutoutStudio-Internal/
 release/SequenceCutoutStudio-Internal-v<version>-win-x64.zip
-release/build-internal.log
+release/build-internal-<时间戳>.log
+release/build-internal-<时间戳>.json
 ```
+
+同版本 ZIP 已存在时，新包名追加时间戳，不删除旧 ZIP。`release/SequenceCutoutStudio-Internal/` 是会重建的工作目录，不要把个人文件放在里面。脚本只清理发布副本，不再清理源码侧 samples；不清理 release 中无关文件。
+
+结果 JSON 记录状态、版本、完成时间、耗时、ZIP 字节数和 SHA-256。预检查失败直接显示错误；正式构建失败保留独立日志和失败摘要，不要分发失败流程留下的目录或 ZIP。脚本不会提交 Git、打标签或自动发布。
+
+随包用户文档：
+
+```text
+docs/快速使用说明.md -> release/SequenceCutoutStudio-Internal/快速使用说明.md
+```
+
+`快速使用说明.md` 必须跟随每个版本一起发布，用来给用户说明软件能做什么、适合什么素材、怎么启动、最短使用流程、怎么检查结果和怎么反馈问题。
+
+序列预览增强版本额外同步 `runtime-tools/extract_animation.py` 到 `portable-root/tools/extract_animation.py`，并在最终运行时检查其存在。该脚本统一解码 GIF / WebP，使用已有 Pillow，不新增 Python 依赖。WebP 扩展后不再调用旧 `extract_gif.py`；构建机及最终运行时还应运行 WebP 解码测试确认当前 Pillow 的 WebP 支持。
+
+构建脚本使用 Unicode 码点构造中文说明文件名，使无 BOM 脚本在 Windows PowerShell 5.1 中也能正确复制 `快速使用说明.md`。
 
 当前已验收 zip：
 
@@ -203,11 +224,11 @@ release/SequenceCutoutStudio-Internal-v0.4.0-internal.1-win-x64.zip
 
 ```text
 1. 同步 runtime-tools 中的可追踪运行时脚本到 portable-root
-2. npm.cmd run build
-3. npx.cmd electron-builder --win dir
+2. tsc --noEmit 和 npm.cmd run build
+3. 本地 node_modules/.bin/electron-builder.cmd --win dir（不通过 npx 临时安装）
 4. 清理 release/win-unpacked/resources/portable-root/tools/rembg/.venv
 5. 清理 release/win-unpacked/resources/portable-root/tools/rembg
-6. 清理 sample 输出目录
+6. 仅清理发布副本中的 sample 输出目录
 7. 组装 release/SequenceCutoutStudio-Internal/app
 8. 使用 csc.exe 编译 launcher
 9. 嵌入 build/icon.ico 和 build/splash.bmp
@@ -221,7 +242,7 @@ release/SequenceCutoutStudio-Internal-v0.4.0-internal.1-win-x64.zip
 脚本会写入日志：
 
 ```text
-release/build-internal.log
+release/build-internal-<时间戳>.log
 ```
 
 ---
@@ -229,6 +250,8 @@ release/build-internal.log
 ## 6. Resource Hacker 要求
 
 脚本会自动查找 `ResourceHacker.exe`。
+
+2026-09-10 已从[作者官网](https://www.angusj.com/resourcehacker/)补齐便携版至 `release/tools/resource-hacker/`，仅本地构建使用，不进入用户 ZIP，也不提交 Git。以后清理 release 时请保留该工具目录，或通过下述环境变量指定其他位置。当前 EXE SHA-256：`14A44FE31B04FBCC65E94E80016138A2E9FC9BB6DFCEA09B98DE57F8A22A1240`。
 
 可用位置包括：
 
